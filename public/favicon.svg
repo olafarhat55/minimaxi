@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <style>
+    .gear { fill: #2E75B6; }
+    .inner { fill: #ffffff; }
+    .pulse { stroke: #2E75B6; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    @media (prefers-color-scheme: dark) {
+      .gear { fill: #64B5F6; }
+      .inner { fill: #1e1e1e; }
+      .pulse { stroke: #64B5F6; }
+    }
+  </style>
+  <path class="gear" d="M24,10 L26.4,10.2 L30.8,5.2 L36.9,8.7 L34.7,15 L36.1,17 L37.2,19.2 L43.7,20.5 L43.7,27.5 L37.2,28.8 L36.1,31 L34.7,33 L36.9,39.3 L30.8,42.8 L26.4,37.8 L24,38 L21.6,37.8 L17.2,42.8 L11.1,39.3 L13.3,33 L11.9,31 L10.8,28.8 L4.3,27.5 L4.3,20.5 L10.8,19.2 L11.9,17 L13.3,15 L11.1,8.7 L17.2,5.2 L21.6,10.2 Z"/>
+  <circle class="inner" cx="24" cy="24" r="9.5"/>
+  <polyline class="pulse" points="14,24 19,24 21,17 23,31 25,24 27,21 29,24 34,24"/>
+</svg>
