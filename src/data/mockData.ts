@@ -513,14 +513,20 @@ export const mockAIInsights: AIInsight[] = [
 ];
 
 // Maintenance Calendar Events
+const _now = new Date();
+const _y = _now.getFullYear();
+const _m = String(_now.getMonth() + 1).padStart(2, '0');
+
 export const mockMaintenanceEvents: MaintenanceEvent[] = [
-  { date: '2026-02-01', type: 'critical', count: 2 },
-  { date: '2026-02-03', type: 'warning', count: 1 },
-  { date: '2026-02-07', type: 'scheduled', count: 3 },
-  { date: '2026-02-10', type: 'warning', count: 2 },
-  { date: '2026-02-14', type: 'scheduled', count: 1 },
-  { date: '2026-02-15', type: 'critical', count: 1 },
-  { date: '2026-02-20', type: 'scheduled', count: 2 },
+  { date: `${_y}-${_m}-01`, type: 'critical',  count: 1 },
+  { date: `${_y}-${_m}-01`, type: 'scheduled', count: 1 },
+  { date: `${_y}-${_m}-05`, type: 'scheduled', count: 1 },
+  { date: `${_y}-${_m}-10`, type: 'critical',  count: 1 },
+  { date: `${_y}-${_m}-12`, type: 'critical',  count: 1 },
+  { date: `${_y}-${_m}-13`, type: 'critical',  count: 1 },
+  { date: `${_y}-${_m}-14`, type: 'critical',  count: 1 },
+  { date: `${_y}-${_m}-16`, type: 'warning',   count: 1 },
+  { date: `${_y}-${_m}-20`, type: 'warning',   count: 1 },
 ];
 
 // Reports Data
@@ -541,6 +547,24 @@ export const mockReportsData: ReportsData = {
   technician_performance: [
     { name: 'Khaled Ibrahim', completed: 45, avg_time: 3.2, rating: 4.8 },
     { name: 'Fatima Hassan', completed: 38, avg_time: 3.5, rating: 4.6 },
+  ],
+monthly_cost: [
+  { month: 'Jul', before: 12000, after: 9600 },
+  { month: 'Aug', before: 10500, after: 8400 },
+  { month: 'Sep', before: 9800,  after: 7840 },
+  { month: 'Oct', before: 9200,  after: 7360 },
+  { month: 'Nov', before: 8500,  after: 6800 },
+  { month: 'Dec', before: 7800,  after: 6240 },
+  { month: 'Jan', before: 7200,  after: 5760 },
+],
+  accuracy_trend: [
+    { month: 'Jul', accuracy: 88 },
+    { month: 'Aug', accuracy: 89 },
+    { month: 'Sep', accuracy: 90 },
+    { month: 'Oct', accuracy: 91 },
+    { month: 'Nov', accuracy: 92 },
+    { month: 'Dec', accuracy: 94 },
+    { month: 'Jan', accuracy: 95 },
   ],
 };
 

@@ -20,68 +20,122 @@ import {
   MenuItem,
   Grid,
   Skeleton,
+  Chip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Block as DeactivateIcon,
+  PersonAdd as InviteIcon,
+  CheckCircle as ActivateIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { api } from '../../services/api';
+import { api, getCompanyId } from '../../services/api';
 import { StatusBadge, EmptyState, ConfirmDialog } from '../../components/common';
 import { useThemeMode } from '../../context/ThemeContext';
 import type { User } from '../../types';
 
+
+// Roles must match backend UserRole enum exactly (case-sensitive)
 const roles = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'engineer', label: 'Engineer' },
-  { value: 'technician', label: 'Technician' },
+  { value: 'ENGINEER',   label: 'Engineer' },
+  { value: 'TECHNICIAN', label: 'Technician' },
+];
+
+// What the backend may return → display label mapping
+const roleLabels: Record<string, string> = {
+  ENGINEER:     'Engineer',
+  TECHNICIAN:   'Technician',
+ SYSTEM_ADMIN: 'Company Admin',
+system_admin: 'Company Admin',
+  engineer:     'Engineer',
+  technician:   'Technician',
+};
+
+const normalizeUser = (raw: any): User => ({
+  id:          raw.id,
+  name:        raw.name,
+  email:       raw.email,
+  role:        raw.role,
+  avatar:      raw.avatar ?? null,
+  first_login: raw.first_login ?? raw.firstLogin ?? false,
+  company_id:  raw.company_id ?? raw.companyId ?? raw.organizationId,
+  created_at:  raw.created_at ?? raw.createdAt ?? '',
+  status:      raw.status ?? 'active',
+});
+
+const resortUsers = (users: User[]): User[] => [
+  ...users.filter((u) => u.status !== 'disabled' && u.status !== 'DISABLED'),
+  ...users.filter((u) => u.status === 'disabled' || u.status === 'DISABLED'),
 ];
 
 const UserManagement = () => {
   const { isDark } = useThemeMode();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
+
+  // Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'engineer',
+    name:  '',
+    phone: '',
+    role:  'TECHNICIAN',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Invite dialog
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteData, setInviteData] = useState({ name: '', email: '', role: 'TECHNICIAN' });
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({});
+
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
+
+  // Snackbar
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' }>({
+    open: false, message: '', severity: 'success',
+  });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'warning' = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  // ── 1. GET /api/users ──────────────────────────────────────────────────────
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
         const data = await api.getUsers();
-        setUsers(data);
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list.map(normalizeUser);
+        const sorted = [
+          ...normalized.filter((u) => u.status !== 'disabled' && u.status !== 'DISABLED'),
+          ...normalized.filter((u) => u.status === 'disabled' || u.status === 'DISABLED'),
+        ];
+        setUsers(sorted);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchUsers();
   }, []);
 
-  const handleOpenDialog = (user?: User | null) => {
-    if (user) {
-      setEditUser(user);
-      setFormData({
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
-    } else {
-      setEditUser(null);
-      setFormData({ name: '', email: '', role: 'engineer' });
-    }
+  // ── Open Edit dialog ───────────────────────────────────────────────────────
+  const handleOpenEdit = (user: User) => {
+    setEditUser(user);
+    const roleUpper = user.role?.toUpperCase() ?? 'TECHNICIAN';
+    const safeRole = roles.some((r) => r.value === roleUpper) ? roleUpper : 'TECHNICIAN';
+    setFormData({
+      name:  user.name,
+      phone: (user as any).phone ?? '',
+      role:  safeRole,
+    });
     setFormErrors({});
     setDialogOpen(true);
   };
@@ -89,7 +143,7 @@ const UserManagement = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditUser(null);
-    setFormData({ name: '', email: '', role: 'engineer' });
+    setFormData({ name: '', phone: '', role: 'TECHNICIAN' });
     setFormErrors({});
   };
 
@@ -102,42 +156,127 @@ const UserManagement = () => {
   const validateForm = () => {
     const errors: Record<string, string> = {};
     if (!formData.name.trim()) errors.name = 'Name is required';
-    if (!formData.email.trim()) errors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Invalid email format';
-    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
+  // ── 4. PUT /api/users/{id} ─────────────────────────────────────────────────
+  const handleEditSubmit = async () => {
+    if (!validateForm() || !editUser) return;
+
+    const body = {
+      name:   formData.name,
+      phone:  formData.phone,
+      role:   formData.role,
+      status: editUser.status, // keep existing status, don't change it from edit
+    };
 
     try {
-      if (editUser) {
-        const updated = await api.updateUser(editUser.id, formData);
-        setUsers(users.map((u) => (u.id === editUser.id ? updated : u)));
-      } else {
-        const created = await api.createUser(formData);
-        setUsers([...users, created]);
-      }
+      const raw = await api.updateUser(editUser.id, body);
+      const updated: User =
+        raw && raw.id
+          ? normalizeUser(raw)
+          : { ...editUser, ...body, role: body.role as any };
+
+      setUsers((prev) =>
+        resortUsers(prev.map((u) => (u.id === editUser.id ? updated : u)))
+      );
       handleCloseDialog();
+      showSnackbar('User updated successfully.');
     } catch (error) {
-      console.error('Failed to save user:', error);
+      console.error('Failed to update user:', error);
+      showSnackbar('Failed to update user.', 'error');
     }
   };
 
+  // ── 7. DELETE /api/users/{id} ─────────────────────────────────────────────
   const handleDelete = async () => {
+    if (!userToDelete) return;
     try {
       await api.deleteUser(userToDelete);
-      setUsers(users.filter((u) => u.id !== userToDelete));
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
+      setUsers((prev) =>
+        resortUsers(prev.map((u) =>
+          u.id === userToDelete ? { ...u, status: 'disabled' } : u
+        ))
+      );
     } catch (error) {
       console.error('Failed to delete user:', error);
+    } finally {
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
     }
   };
 
+  // ── Toggle Status — active ↔ inactive (invited → blocked) ────────────────
+  const handleToggleStatus = async (userId: number) => {
+    const target = users.find((u) => u.id === userId);
+    if (!target) return;
+
+    const status = target.status?.toLowerCase();
+
+    // invited → منع التغيير
+    if (status === 'invited') {
+      showSnackbar('Cannot change status of an invited user before they activate their account.', 'warning');
+      return;
+    }
+
+    // toggle: active → inactive, inactive → active
+    const newStatus = status === 'active' ? 'inactive' : 'active';
+
+    const body = {
+      name:   target.name,
+      phone:  (target as any).phone ?? '',
+      role:   target.role,
+      status: newStatus,
+    };
+
+    try {
+      const raw = await api.updateUser(userId, body);
+      const updated: User =
+        raw && raw.id
+          ? normalizeUser(raw)
+          : { ...target, status: newStatus };
+
+      setUsers((prev) =>
+        resortUsers(prev.map((u) => (u.id === userId ? updated : u)))
+      );
+      showSnackbar(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully.`);
+    } catch (error: any) {
+      console.error('Failed to update user status:', error);
+      showSnackbar(error?.message || 'Failed to update user status.', 'error');
+    }
+  };
+
+  // ── 5. POST /api/users/invite ─────────────────────────────────────────────
+  const validateInvite = () => {
+    const errors: Record<string, string> = {};
+    if (!inviteData.name.trim())  errors.name  = 'Name is required';
+    if (!inviteData.email.trim()) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteData.email))
+      errors.email = 'Invalid email format';
+    setInviteErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleInviteSubmit = async () => {
+    if (!validateInvite()) return;
+    try {
+      await api.inviteUser({
+        name:           inviteData.name,
+        email:          inviteData.email,
+        role:           inviteData.role,
+        organizationId: getCompanyId(),
+      });
+      setInviteDialogOpen(false);
+      setInviteData({ name: '', email: '', role: 'TECHNICIAN' });
+      showSnackbar('Invitation sent successfully.');
+    } catch (error) {
+      console.error('Failed to invite user:', error);
+      showSnackbar('Failed to send invitation.', 'error');
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Box>
@@ -155,11 +294,11 @@ const UserManagement = () => {
           User Management
         </Typography>
         <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
+          variant="outlined"
+          startIcon={<InviteIcon />}
+          onClick={() => setInviteDialogOpen(true)}
         >
-          Add New User
+          Invite User
         </Button>
       </Box>
 
@@ -167,9 +306,9 @@ const UserManagement = () => {
       {users.length === 0 ? (
         <EmptyState
           title="No users found"
-          description="Add your first user to get started."
-          actionLabel="Add User"
-          onAction={() => handleOpenDialog()}
+          description="Invite users to get started."
+          actionLabel="Invite User"
+          onAction={() => setInviteDialogOpen(true)}
         />
       ) : (
         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
@@ -189,105 +328,273 @@ const UserManagement = () => {
                 <TableCell>User</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Role</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar sx={{ bgcolor: '#2E75B6' }}>
-                        {user.name?.charAt(0)}
-                      </Avatar>
-                      <Typography fontWeight={500}>{user.name}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={user.role} />
-                  </TableCell>
-                  <TableCell>
-                    {user.created_at && format(new Date(user.created_at), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(user)}
-                      title="Edit"
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" title="Deactivate">
-                      <DeactivateIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setUserToDelete(user.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                      title="Delete"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((user) => {
+                const status = user.status?.toLowerCase();
+                const isInvited  = status === 'invited';
+                const isDisabled = status === 'disabled';
+                const isActive   = status === 'active';
+
+                return (
+                  <TableRow key={user.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar src={user.avatar ?? undefined} sx={{ bgcolor: '#2E75B6' }}>
+                          {!user.avatar && user.name?.charAt(0)}
+                        </Avatar>
+                        <Typography fontWeight={500}>{user.name}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={roleLabels[user.role] ?? user.role} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.status ?? 'active'}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          borderColor:
+                            status === 'active'   ? '#22c55e' :
+                            status === 'inactive' ? '#3b82f6' :
+                            status === 'disabled' ? '#ef4444' :
+                            status === 'invited'  ? '#eab308' :
+                            '#9ca3af',
+                          color:
+                            status === 'active'   ? '#22c55e' :
+                            status === 'inactive' ? '#3b82f6' :
+                            status === 'disabled' ? '#ef4444' :
+                            status === 'invited'  ? '#eab308' :
+                            '#9ca3af',
+                          fontWeight: 500,
+                          textTransform: 'capitalize',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {user.created_at && format(new Date(user.created_at), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton size="small" title="Edit" onClick={() => handleOpenEdit(user)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+
+                      {/* Toggle status button */}
+                      <IconButton
+                        size="small"
+                        title={
+                          isInvited  ? 'Cannot change — user not activated yet' :
+                          isDisabled ? 'User is deleted' :
+                          isActive   ? 'Deactivate' :
+                          'Activate'
+                        }
+                        onClick={() => handleToggleStatus(user.id)}
+                        disabled={isDisabled}
+                        sx={{
+                          color:
+                            isInvited  ? '#eab308' :
+                            isActive   ? '#ef4444' :
+                            '#22c55e',
+                        }}
+                      >
+                        {isActive
+                          ? <DeactivateIcon fontSize="small" />
+                          : <ActivateIcon fontSize="small" />
+                        }
+                      </IconButton>
+
+                      <IconButton
+                        size="small"
+                        title="Delete"
+                        onClick={() => {
+                          setUserToDelete(user.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       )}
 
-      {/* Add/Edit Dialog */}
+      {/* ── Roles Section ── */}
+     {/* ── Roles Overview ── */}
+<Box sx={{ mt: 4 }}>
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+    <Box>
+      <Typography variant="h6" fontWeight={700}>Roles & Permissions</Typography>
+      <Typography variant="caption" color="text.secondary">Overview of access levels in your organization</Typography>
+    </Box>
+    <Chip label={`${users.length} total users`} size="small" variant="outlined" />
+  </Box>
+
+  <Grid container spacing={2}>
+    {[
+      {
+        role: 'Company Admin',
+        key: 'Company Admin',
+        color: '#2E75B6',
+        gradient: isDark ? 'linear-gradient(135deg, #0d1f3d 0%, #1a3a6b 100%)' : 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+        icon: '🛡️',
+        permissions: [
+          { label: 'Full access to all modules', icon: '✦' },
+          { label: 'Manage users & invitations', icon: '✦' },
+          { label: 'View all reports & analytics', icon: '✦' },
+          { label: 'Configure company settings', icon: '✦' },
+        ],
+      },
+      {
+        role: 'Engineer',
+        key: 'Engineer',
+        color: '#16a34a',
+        gradient: isDark ? 'linear-gradient(135deg, #0d2818 0%, #1a4d2e 100%)' : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+        icon: '⚙️',
+        permissions: [
+          { label: 'View & manage assets', icon: '✦' },
+          { label: 'Create & assign work orders', icon: '✦' },
+          { label: 'Access dashboard & reports', icon: '✦' },
+          { label: 'Monitor sensor data', icon: '✦' },
+        ],
+      },
+      {
+        role: 'Technician',
+        key: 'Technician',
+        color: '#9333ea',
+        gradient: isDark ? 'linear-gradient(135deg, #1f0d2d 0%, #3b1a5a 100%)' : 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+        icon: '🔧',
+        permissions: [
+          { label: 'View assigned work orders only', icon: '✦' },
+          { label: 'Update work order status', icon: '✦' },
+          { label: 'Access assigned asset details', icon: '✦' },
+          { label: 'Add notes to work orders', icon: '✦' },
+        ],
+      },
+    ].map((item) => {
+      const count = users.filter((u) => (roleLabels[u.role] ?? u.role) === item.key).length;
+      return (
+        <Grid size={{ xs: 12, md: 4 }} key={item.role}>
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              height: '100%',
+              overflow: 'hidden',
+              border: `1px solid ${item.color}25`,
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: `0 8px 24px ${item.color}20`,
+              },
+            }}
+          >
+            {/* Card Header */}
+            <Box
+              sx={{
+                background: item.gradient,
+                px: 2.5, pt: 2.5, pb: 2,
+                borderBottom: `1px solid ${item.color}20`,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: 40, height: 40, borderRadius: 2,
+                      bgcolor: item.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 18,
+                      boxShadow: `0 4px 12px ${item.color}40`,
+                    }}
+                  >
+                    {item.icon}
+                  </Box>
+                  <Box>
+                    <Typography fontWeight={700} fontSize="0.95rem" color={item.color}>
+                      {item.role}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {count} {count === 1 ? 'user' : 'users'} assigned
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box
+                  sx={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    bgcolor: `${item.color}15`,
+                    border: `2px solid ${item.color}40`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <Typography fontSize={13} fontWeight={700} color={item.color}>{count}</Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Permissions List */}
+            <Box sx={{ px: 2.5, py: 2, bgcolor: isDark ? '#0f172a' : '#fff' }}>
+              <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                Permissions
+              </Typography>
+              <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {item.permissions.map((perm) => (
+                  <Box key={perm.label} sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    <Box
+                      sx={{
+                        width: 20, height: 20, borderRadius: 1,
+                        bgcolor: `${item.color}15`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: item.color }} />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" lineHeight={1.4}>
+                      {perm.label}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+      );
+    })}
+  </Grid>
+</Box>
+
+      {/* ── Edit Dialog — PUT /api/users/{id} ── */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editUser ? 'Edit User' : 'Add New User'}
-        </DialogTitle>
+        <DialogTitle>Edit User</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             {/* @ts-expect-error MUI v7 Grid item prop */}
             <Grid item xs={12}>
               <TextField
-                fullWidth
-                label="Name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                error={!!formErrors.name}
-                helperText={formErrors.name}
-                required
+                fullWidth label="Name" name="name"
+                value={formData.name} onChange={handleChange}
+                error={!!formErrors.name} helperText={formErrors.name} required
               />
             </Grid>
             {/* @ts-expect-error MUI v7 Grid item prop */}
             <Grid item xs={12}>
               <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                error={!!formErrors.email}
-                helperText={formErrors.email}
-                required
-                disabled={!!editUser}
-              />
-            </Grid>
-            {/* @ts-expect-error MUI v7 Grid item prop */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                select
-                label="Role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
+                fullWidth select label="Role" name="role"
+                value={formData.role} onChange={handleChange}
               >
-                {roles.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>
-                    {role.label}
+                {roles.map((r) => (
+                  <MenuItem key={r.value} value={r.value}>
+                    {r.label}
                   </MenuItem>
                 ))}
               </TextField>
@@ -296,13 +603,56 @@ const UserManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>
-            {editUser ? 'Update' : 'Add User'}
-          </Button>
+          <Button variant="contained" onClick={handleEditSubmit}>Update</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* ── Invite Dialog — POST /api/users/invite ── */}
+      <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Invite User</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            {/* @ts-expect-error MUI v7 Grid item prop */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth label="Name"
+                value={inviteData.name}
+                onChange={(e) => setInviteData((p) => ({ ...p, name: e.target.value }))}
+                error={!!inviteErrors.name} helperText={inviteErrors.name} required
+              />
+            </Grid>
+            {/* @ts-expect-error MUI v7 Grid item prop */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth label="Email" type="email"
+                value={inviteData.email}
+                onChange={(e) => setInviteData((p) => ({ ...p, email: e.target.value }))}
+                error={!!inviteErrors.email} helperText={inviteErrors.email} required
+              />
+            </Grid>
+            {/* @ts-expect-error MUI v7 Grid item prop */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth select label="Role"
+                value={inviteData.role}
+                onChange={(e) => setInviteData((p) => ({ ...p, role: e.target.value }))}
+              >
+                {roles.map((r) => (
+                  <MenuItem key={r.value} value={r.value}>
+                    {r.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleInviteSubmit}>Send Invite</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete Confirmation — DELETE /api/users/{id} ── */}
       <ConfirmDialog
         open={deleteDialogOpen}
         title="Delete User"
@@ -315,6 +665,22 @@ const UserManagement = () => {
           setUserToDelete(null);
         }}
       />
+
+      {/* ── Snackbar ── */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

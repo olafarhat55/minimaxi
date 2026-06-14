@@ -34,15 +34,18 @@ const SetupWizard = () => {
     setSetupData((prev) => ({ ...prev, [key]: data }));
   };
 
-  const handleComplete = async () => {
-    try {
-      await api.completeSetup();
-      updateUser({ first_login: false });
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Failed to complete setup:', error);
-    }
-  };
+ const handleComplete = async () => {
+  try {
+    await api.completeSetup();
+  } catch (error) {
+    console.error('Failed to complete setup:', error);
+    // مش هنوقف المستخدم حتى لو الـ API فشل
+  } finally {
+    // دايمًا نحدث الـ user ونروح للـ dashboard
+    updateUser({ first_login: false });
+    navigate('/dashboard');
+  }
+};
 
   const activeStep = getActiveStep();
   const isWelcomePage = activeStep === -1;

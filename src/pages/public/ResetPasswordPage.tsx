@@ -26,11 +26,13 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { validatePassword, validateConfirmPassword } from '../../utils/validation';
+import { api } from '../../services/api';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const email = searchParams.get('email') || '';
+  const otp = searchParams.get('otp') || '';
 
   const [formData, setFormData] = useState({
     password: '',
@@ -90,23 +92,20 @@ const ResetPasswordPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    if (!validateForm()) return;
-
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log('Password reset for token:', token);
-      setSuccess(true);
-    } catch (err) {
-      setError('Failed to reset password. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    await api.resetPassword(email, otp, formData.password);
+    setSuccess(true);
+  } catch (err: any) {
+    setError(err.message || 'Failed to reset password. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const PasswordCheckItem = ({ checked, label }) => (
     <ListItem dense sx={{ py: 0 }}>
@@ -214,11 +213,11 @@ const ResetPasswordPage = () => {
               </Alert>
             )}
 
-            {!token && (
-              <Alert severity="warning" sx={{ mb: 3 }}>
-                Invalid or missing reset token. Please use the link from your email.
-              </Alert>
-            )}
+           {(!email || !otp) && (
+  <Alert severity="warning" sx={{ mb: 3 }}>
+    Invalid or missing reset link. Please go back and try again.
+  </Alert>
+)}
 
             <form onSubmit={handleSubmit}>
               <TextField
@@ -322,7 +321,7 @@ const ResetPasswordPage = () => {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={loading || !token || !allChecksPassed}
+                disabled={loading || !email || !otp || !allChecksPassed}
                 sx={{ py: 1.5, mt: 3 }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Reset Password'}

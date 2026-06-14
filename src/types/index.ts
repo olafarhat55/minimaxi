@@ -42,6 +42,35 @@ export interface MachinePrediction {
   recommendation: string;
 }
 
+export interface MachineIssue {
+  id?: number;
+  date?: string;
+  created_at?: string;
+  failure_type?: string;
+  type?: string;
+  resolution?: string;
+  downtime?: string;
+}
+
+export interface MachineNote {
+  id?: number;
+  work_order_id?: number;
+  work_order_title?: string;
+  action_taken?: string;
+  root_cause?: string;
+  additional_notes?: string;
+  time_spent_minutes?: number;
+  completed_at?: string;
+  // fallback fields
+  author?: string;
+  created_by?: string;
+  created_at?: string;
+  date?: string;
+  content?: string;
+  text?: string;
+  note?: string;
+}
+
 export interface Machine {
   id: number;
   asset_id: string;
@@ -57,6 +86,13 @@ export interface Machine {
   last_maintenance: string;
   sensors: Record<string, number>;
   prediction: MachinePrediction;
+  // Gateway / data-source fields
+  gatewayUrl?: string | null;
+  pollingIntervalSeconds?: number | null;
+  // Optional embedded data (may come from backend or separate endpoints)
+  issues?: MachineIssue[];
+  work_orders?: WorkOrder[];
+  notes?: MachineNote[];
 }
 
 // ============ WORK ORDER ============
@@ -101,8 +137,8 @@ export interface Alert {
   type: string;
   severity: string;
   machine_id: number;
-  machine_name: string;
-  asset_id: string;
+  machine_name: string | null;
+  asset_id: string | null;
   title: string;
   message: string;
   created_at: string;
@@ -174,11 +210,31 @@ export interface Notification {
 
 // ============ REPORTS ============
 
+export interface MonthlyDowntime {
+  month: string;
+  hours?: number;         // legacy field — kept for backward compat
+  before_hours?: number;  // new
+  after_hours?: number;   // new
+}
+
+export interface MonthlyCost {
+  month: string;
+  before: number;
+  after: number;
+}
+
+export interface AccuracyTrend {
+  month: string;
+  accuracy: number;
+}
+
 export interface TechnicianPerformance {
   name: string;
   completed: number;
   avg_time: number;
   rating: number;
+  total_hours?: number;  // new
+  success_rate?: number; // new — number 0–100
 }
 
 export interface ReportsData {
@@ -186,7 +242,9 @@ export interface ReportsData {
   prediction_accuracy: number;
   cost_savings: number;
   preventive_vs_reactive: { preventive: number; reactive: number };
-  monthly_downtime: { month: string; hours: number }[];
+  monthly_downtime: MonthlyDowntime[];
+  monthly_cost: MonthlyCost[];
+  accuracy_trend: AccuracyTrend[];
   technician_performance: TechnicianPerformance[];
 }
 
@@ -209,4 +267,43 @@ export interface AccessRequest {
 export interface SelectOption {
   value: string;
   label: string;
+}
+
+// ============ SETTINGS ============
+
+export interface AssetTypeSetting {
+  id: number;
+  name: string;
+  description: string;
+  industry?: string;
+  organizationId?: number;
+}
+
+export interface SensorThresholdSetting {
+  id: number;
+  assetTypeId: number;
+  sensorTypeId: number;
+  warningValue: number;
+  criticalValue: number;
+  organizationId?: number;
+}
+
+export interface AIModelSettings {
+  name: string;
+  type: string;
+  status: string;
+  lastTraining: string;
+  nextTraining: string;
+  metrics: {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1Score: number;
+  };
+  trainingHistory: Array<{
+    date: string;
+    duration: string;
+    accuracy: number;
+    status: string;
+  }>;
 }

@@ -1,16 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
   Card,
   CardContent,
   Chip,
-  IconButton,
   Button,
   TextField,
   MenuItem,
   Skeleton,
-  Grid,
 } from '@mui/material';
 import {
   CheckCircle as AcknowledgeIcon,
@@ -25,60 +23,84 @@ import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common';
 import type { Alert as AlertType } from '../../types';
 
+// ── Real severity values from backend: critical | high | medium | low ────────
 const severityConfig: Record<string, { color: string; bgcolor: string; icon: typeof ErrorIcon }> = {
   critical: { color: '#f44336', bgcolor: '#ffebee', icon: ErrorIcon },
-  warning: { color: '#ff9800', bgcolor: '#fff3e0', icon: WarningIcon },
-  info: { color: '#2196f3', bgcolor: '#e3f2fd', icon: InfoIcon },
+  high:     { color: '#f44336', bgcolor: '#ffebee', icon: ErrorIcon },
+  medium:   { color: '#ff9800', bgcolor: '#fff3e0', icon: WarningIcon },
+  low:      { color: '#2196f3', bgcolor: '#e3f2fd', icon: InfoIcon },
+};
+
+// ── Map UI filter → API query params ─────────────────────────────────────────
+// Backend supports: ?severity=critical|high|medium|low  OR  ?acknowledged=false
+const buildParams = (filter: string): Record<string, string> => {
+  switch (filter) {
+    case 'unacknowledged': return { acknowledged: 'false' };
+    case 'all':            return {};
+    default:               return { severity: filter }; // critical | high | medium | low
+  }
 };
 
 const Alerts = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [alerts, setAlerts] = useState<AlertType[]>([]);
-  const [filter, setFilter] = useState('all');
+  const [loading, setLoading]     = useState(true);
+  const [alerts, setAlerts]       = useState<AlertType[]>([]);
+  const [allAlerts, setAllAlerts] = useState<AlertType[]>([]); // for stats only
+  const [filter, setFilter]       = useState('all');
 
+  // ── full list once — for header stats ──────────────────────────────────────
   useEffect(() => {
-    const fetchAlerts = async () => {
-      setLoading(true);
-      try {
-        const data = await api.getAlerts();
-        setAlerts(data);
-      } catch (error) {
-        console.error('Failed to fetch alerts:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAlerts();
+    api.getAlerts()
+      .then((data: AlertType[]) => setAllAlerts(data))
+      .catch(() => {});
   }, []);
 
+  // ── filtered list on every filter change ───────────────────────────────────
+  const fetchFiltered = useCallback(async (currentFilter: string) => {
+    setLoading(true);
+    try {
+      const data: AlertType[] = await api.getAlerts(buildParams(currentFilter));
+      setAlerts(data);
+    } catch (err) {
+      console.error('Failed to fetch alerts:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFiltered(filter);
+  }, [filter, fetchFiltered]);
+
+  // ── acknowledge ────────────────────────────────────────────────────────────
   const handleAcknowledge = async (alertId: number) => {
     try {
+      // PUT /api/alerts/{id}/acknowledge  body: { user: "name" }
       await api.acknowledgeAlert(alertId, user.name);
-      setAlerts(alerts.map((a) =>
-        a.id === alertId
-          ? { ...a, acknowledged: true, acknowledged_by: user.name, acknowledged_at: new Date().toISOString() }
-          : a
-      ));
-    } catch (error) {
-      console.error('Failed to acknowledge alert:', error);
+      const now = new Date().toISOString();
+
+      const patch = (list: AlertType[]) =>
+        list.map((a) =>
+          a.id === alertId
+            ? { ...a, acknowledged: true, acknowledged_by: user.name, acknowledged_at: now }
+            : a,
+        );
+
+      setAlerts(patch);
+      setAllAlerts(patch);
+    } catch (err) {
+      console.error('Failed to acknowledge alert:', err);
     }
   };
 
-  const filteredAlerts = alerts.filter((a) => {
-    if (filter === 'all') return true;
-    if (filter === 'unacknowledged') return !a.acknowledged;
-    return a.severity === filter;
-  });
-
+  // ── stats from full list ───────────────────────────────────────────────────
   const stats = {
-    total: alerts.length,
-    critical: alerts.filter((a) => a.severity === 'critical').length,
-    warning: alerts.filter((a) => a.severity === 'warning').length,
-    unacknowledged: alerts.filter((a) => !a.acknowledged).length,
+    critical:       allAlerts.filter((a) => ['critical', 'high'].includes(a.severity)).length,
+    medium:         allAlerts.filter((a) => a.severity === 'medium').length,
+    unacknowledged: allAlerts.filter((a) => !a.acknowledged).length,
   };
 
+  // ── skeleton ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Box>
@@ -94,17 +116,15 @@ const Alerts = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>
-          Alerts
-        </Typography>
+        <Typography variant="h5" fontWeight={600}>Alerts</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Chip label={`${stats.critical} Critical`} sx={{ bgcolor: '#ffebee', color: '#f44336' }} />
-          <Chip label={`${stats.warning} Warning`} sx={{ bgcolor: '#fff3e0', color: '#ff9800' }} />
-          <Chip label={`${stats.unacknowledged} Unread`} sx={{ bgcolor: '#e3f2fd', color: '#1976d2' }} />
+          <Chip label={`${stats.critical} Critical / High`} sx={{ bgcolor: '#ffebee', color: '#f44336' }} />
+          <Chip label={`${stats.medium} Medium`}            sx={{ bgcolor: '#fff3e0', color: '#ff9800' }} />
+          <Chip label={`${stats.unacknowledged} Unread`}    sx={{ bgcolor: '#e3f2fd', color: '#1976d2' }} />
         </Box>
       </Box>
 
-      {/* Filter */}
+      {/* Filter dropdown — values match exact API severity strings */}
       <Box sx={{ mb: 3 }}>
         <TextField
           select
@@ -115,14 +135,15 @@ const Alerts = () => {
         >
           <MenuItem value="all">All Alerts</MenuItem>
           <MenuItem value="unacknowledged">Unacknowledged</MenuItem>
-          <MenuItem value="critical">Critical Only</MenuItem>
-          <MenuItem value="warning">Warning Only</MenuItem>
-          <MenuItem value="info">Info Only</MenuItem>
+          <MenuItem value="critical">Critical</MenuItem>
+          <MenuItem value="high">High</MenuItem>
+          <MenuItem value="medium">Medium</MenuItem>
+          <MenuItem value="low">Low</MenuItem>
         </TextField>
       </Box>
 
-      {/* Alerts List */}
-      {filteredAlerts.length === 0 ? (
+      {/* List */}
+      {alerts.length === 0 ? (
         <EmptyState
           icon={AlertIcon}
           title="No alerts"
@@ -130,8 +151,8 @@ const Alerts = () => {
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filteredAlerts.map((alert) => {
-            const config = severityConfig[alert.severity] || severityConfig.info;
+          {alerts.map((alert) => {
+            const config = severityConfig[alert.severity] ?? severityConfig.low;
             const SeverityIcon = config.icon;
 
             return (
@@ -145,20 +166,20 @@ const Alerts = () => {
               >
                 <CardContent>
                   <Box sx={{ display: 'flex', gap: 2 }}>
+                    {/* Severity icon */}
                     <Box
                       sx={{
-                        width: 48,
-                        height: 48,
+                        width: 48, height: 48,
                         borderRadius: 2,
                         bgcolor: config.bgcolor,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                         flexShrink: 0,
                       }}
                     >
                       <SeverityIcon sx={{ color: config.color }} />
                     </Box>
+
+                    {/* Content */}
                     <Box sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                         <Typography variant="subtitle1" fontWeight={600}>
@@ -167,12 +188,7 @@ const Alerts = () => {
                         <Chip
                           label={alert.severity}
                           size="small"
-                          sx={{
-                            bgcolor: config.bgcolor,
-                            color: config.color,
-                            textTransform: 'capitalize',
-                            fontSize: '0.7rem',
-                          }}
+                          sx={{ bgcolor: config.bgcolor, color: config.color, textTransform: 'capitalize', fontSize: '0.7rem' }}
                         />
                         <Chip
                           label={alert.type}
@@ -181,13 +197,18 @@ const Alerts = () => {
                           sx={{ fontSize: '0.7rem' }}
                         />
                       </Box>
+
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         {alert.message}
                       </Typography>
+
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {alert.asset_id} - {alert.machine_name}
-                        </Typography>
+                        {/* machine_name / asset_id can be null for system alerts */}
+                        {alert.asset_id && (
+                          <Typography variant="caption" color="text.secondary">
+                            {alert.asset_id} — {alert.machine_name}
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">
                           {format(new Date(alert.created_at), 'MMM d, yyyy h:mm a')}
                         </Typography>
@@ -198,6 +219,8 @@ const Alerts = () => {
                         )}
                       </Box>
                     </Box>
+
+                    {/* Acknowledge button — only for unacknowledged */}
                     {!alert.acknowledged && (
                       <Button
                         variant="outlined"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -19,17 +19,24 @@ import {
   Snackbar,
   Alert,
   Grid,
+  Collapse,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
+  Router as RouterIcon,
+  Memory as SimulatorIcon,
+  Cloud as MqttIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useThemeMode } from '../../context/ThemeContext';
 import { api } from '../../services/api';
 
-const assetTypes = ['Engine', 'Pump', 'Compressor', 'Motor', 'Conveyor', 'Turbine'];
+const FALLBACK_ASSET_TYPES = ['Engine', 'Pump', 'Compressor', 'Motor', 'Conveyor', 'Turbine'];
 
 const criticalityOptions = [
   { value: 'high', label: 'High', color: '#EF4444' },
@@ -45,6 +52,15 @@ const sensorUnits: Record<string, string> = {
   Pressure: 'BAR',
   RPM: 'RPM',
 };
+
+type DataSourceType = 'simulator' | 'mqtt' | 'rest_api';
+
+interface DataSourceConfig {
+  type: DataSourceType;
+  gatewayUrl: string;
+  apiKey: string;
+  pollingInterval: string;
+}
 
 interface SensorConfig {
   id: string;
@@ -77,17 +93,61 @@ const initialSensor = {
   criticalThreshold: '',
 };
 
+const initialDataSource: DataSourceConfig = {
+  type: 'simulator',
+  gatewayUrl: 'https://factory-demo-api.minimaxi.com',
+  apiKey: 'sk-gw-demo-xxxxxxxxxxxxxxxx',
+  pollingInterval: '30',
+};
+
+const dataSourceOptions: { value: DataSourceType; label: string; description: string; icon: React.ReactNode }[] = [
+  {
+    value: 'simulator',
+    label: 'Internal Simulator',
+    description: 'Generate synthetic sensor data for testing and development',
+    icon: <SimulatorIcon sx={{ fontSize: 20 }} />,
+  },
+  {
+    value: 'mqtt',
+    label: 'MQTT Broker',
+    description: 'Subscribe to real-time sensor topics via MQTT protocol',
+    icon: <MqttIcon sx={{ fontSize: 20 }} />,
+  },
+  {
+    value: 'rest_api',
+    label: 'REST API Gateway',
+    description: 'Poll an enterprise API gateway that aggregates PLC and IoT sensor data',
+    icon: <RouterIcon sx={{ fontSize: 20 }} />,
+  },
+];
+
 const AddAsset = () => {
   const navigate = useNavigate();
   const { isDark } = useThemeMode();
 
   const [form, setForm] = useState<AssetForm>(initialAssetForm);
+  const [assetTypesList, setAssetTypesList] = useState<string[]>(FALLBACK_ASSET_TYPES);
   const [sensors, setSensors] = useState<SensorConfig[]>([]);
   const [currentSensor, setCurrentSensor] = useState(initialSensor);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sensorError, setSensorError] = useState('');
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [dataSource, setDataSource] = useState<DataSourceConfig>(initialDataSource);
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  // ── جلب الـ asset types من الـ API ──────────────────────────
+  useEffect(() => {
+    api.getAssetTypes()
+      .then((data: any[]) => {
+        const names = data.map((a) => a.name).filter(Boolean);
+        if (names.length > 0) setAssetTypesList(names);
+      })
+      .catch(() => {
+        // fallback للقيم الـ hardcoded لو الـ API فشل
+        setAssetTypesList(FALLBACK_ASSET_TYPES);
+      });
+  }, []);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -111,6 +171,15 @@ const AddAsset = () => {
     const { name, value } = e.target;
     setCurrentSensor((prev) => ({ ...prev, [name]: value }));
     setSensorError('');
+  };
+
+  const handleDataSourceTypeChange = (value: DataSourceType) => {
+    setDataSource((prev) => ({ ...prev, type: value }));
+  };
+
+  const handleDataSourceFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setDataSource((prev) => ({ ...prev, [name]: value }));
   };
 
   const addSensor = () => {
@@ -159,22 +228,25 @@ const AddAsset = () => {
 
     setLoading(true);
     try {
-      const sensorData: Record<string, number> = {};
-      sensors.forEach((s) => {
-        sensorData[s.type.toLowerCase()] = 0;
-      });
-
       await api.createMachine({
+        organizationId: 17,
         name: form.name,
-        serial_number: form.serial_number,
+        serialNumber: form.serial_number,
         type: form.type,
         location: form.location,
-        criticality: form.criticality,
-        manufacturer: '',
-        model: '',
-        installation_date: new Date().toISOString().split('T')[0],
-        last_maintenance: new Date().toISOString().split('T')[0],
-        sensors: Object.keys(sensorData).length > 0 ? sensorData : undefined,
+        criticality: form.criticality.toUpperCase(),
+        installationDate: new Date().toISOString().split('T')[0],
+        dataSourceType: dataSource.type,
+        gatewayUrl: dataSource.type === 'rest_api' ? dataSource.gatewayUrl : null,
+        pollingIntervalSeconds: dataSource.type === 'rest_api'
+          ? parseInt(dataSource.pollingInterval)
+          : 30,
+        sensors: sensors.map((s) => ({
+          type: s.type,
+          unit: s.unit,
+          warningThreshold: parseFloat(s.warningThreshold),
+          criticalThreshold: parseFloat(s.criticalThreshold),
+        })),
       });
 
       setSnackbar({ open: true, message: 'Asset added successfully!', severity: 'success' });
@@ -262,7 +334,7 @@ const AddAsset = () => {
               error={!!errors.type}
               helperText={errors.type}
             >
-              {assetTypes.map((t) => (
+              {assetTypesList.map((t) => (
                 <MenuItem key={t} value={t}>{t}</MenuItem>
               ))}
             </TextField>
@@ -376,7 +448,6 @@ const AddAsset = () => {
           </Typography>
         )}
 
-        {/* Sensors Table */}
         {sensors.length > 0 && (
           <TableContainer sx={{ mt: 3, borderRadius: 1, border: `1px solid ${isDark ? '#404040' : '#e0e0e0'}` }}>
             <Table size="small">
@@ -397,11 +468,7 @@ const AddAsset = () => {
                     <TableCell>{sensor.warningThreshold}</TableCell>
                     <TableCell>{sensor.criticalThreshold}</TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => removeSensor(sensor.id)}
-                      >
+                      <IconButton size="small" color="error" onClick={() => removeSensor(sensor.id)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -413,14 +480,219 @@ const AddAsset = () => {
         )}
 
         {sensors.length === 0 && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 2, textAlign: 'center', py: 2 }}
-          >
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center', py: 2 }}>
             No sensors added yet. Use the form above to add sensors.
           </Typography>
         )}
+      </Paper>
+
+      {/* Data Source Configuration */}
+      <Paper sx={sectionSx} elevation={0}>
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+          Data Source Configuration
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Choose how this asset streams sensor readings into the platform.
+        </Typography>
+
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {dataSourceOptions.map((opt) => {
+            const selected = dataSource.type === opt.value;
+            return (
+              <Grid key={opt.value} size={{ xs: 12, sm: 4 }}>
+                <Box
+                  onClick={() => handleDataSourceTypeChange(opt.value)}
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: `2px solid ${selected ? '#1976d2' : isDark ? '#334155' : '#e2e8f0'}`,
+                    bgcolor: selected
+                      ? isDark ? 'rgba(25,118,210,0.12)' : '#e3f2fd'
+                      : isDark ? '#0f172a' : '#f8fafc',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease',
+                    '&:hover': {
+                      borderColor: '#1976d2',
+                      bgcolor: isDark ? 'rgba(25,118,210,0.08)' : '#f0f7ff',
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                    <Box
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: selected ? '#1976d2' : isDark ? '#1e293b' : '#e2e8f0',
+                        color: selected ? '#fff' : 'text.secondary',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opt.icon}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Radio
+                        checked={selected}
+                        onChange={() => handleDataSourceTypeChange(opt.value)}
+                        size="small"
+                        sx={{ p: 0, color: selected ? '#1976d2' : 'text.disabled' }}
+                      />
+                      <Typography variant="body2" fontWeight={600}>
+                        {opt.label}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ pl: '52px', display: 'block' }}>
+                    {opt.description}
+                  </Typography>
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
+
+        {/* REST API Gateway fields */}
+        <Collapse in={dataSource.type === 'rest_api'} unmountOnExit>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: isDark ? '#0f172a' : '#f8fafc',
+              border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                mb: 2.5,
+                py: 1.5,
+                px: 2,
+                borderRadius: 1.5,
+                bgcolor: isDark ? '#1e293b' : '#fff',
+                border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+              }}
+            >
+              {[
+                { label: 'PLCs & IoT', sub: 'Factory floor' },
+                null,
+                { label: 'API Gateway', sub: 'Every 30s' },
+                null,
+                { label: 'AI Model', sub: 'Prediction' },
+                null,
+                { label: 'Alert / WO', sub: 'Action' },
+              ].map((node, idx) =>
+                node === null ? (
+                  <Typography key={idx} variant="body2" color="text.disabled" sx={{ mx: 0.5 }}>→</Typography>
+                ) : (
+                  <Box key={idx} sx={{ textAlign: 'center', px: 1 }}>
+                    <Typography variant="caption" fontWeight={700} color="primary">{node.label}</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem' }}>
+                      {node.sub}
+                    </Typography>
+                  </Box>
+                )
+              )}
+            </Box>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 5 }}>
+                <TextField
+                  fullWidth
+                  label="Gateway URL"
+                  name="gatewayUrl"
+                  value={dataSource.gatewayUrl}
+                  onChange={handleDataSourceFieldChange}
+                  placeholder="https://your-gateway.example.com"
+                  size="small"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="API Key"
+                  name="apiKey"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={dataSource.apiKey}
+                  onChange={handleDataSourceFieldChange}
+                  size="small"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => setShowApiKey((v) => !v)} edge="end">
+                          {showApiKey ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField
+                  fullWidth
+                  label="Polling Interval"
+                  name="pollingInterval"
+                  type="number"
+                  value={dataSource.pollingInterval}
+                  onChange={handleDataSourceFieldChange}
+                  size="small"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Typography variant="caption" color="text.secondary">sec</Typography>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+              The platform will poll the gateway every {dataSource.pollingInterval || '30'} seconds, forward readings
+              to the AI model, and automatically generate alerts or work orders based on the prediction result.
+            </Typography>
+          </Box>
+        </Collapse>
+
+        {/* MQTT */}
+        <Collapse in={dataSource.type === 'mqtt'} unmountOnExit>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: isDark ? '#0f172a' : '#f8fafc',
+              border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              MQTT broker configuration will be available in a future release.
+            </Typography>
+          </Box>
+        </Collapse>
+
+        {/* Simulator */}
+        <Collapse in={dataSource.type === 'simulator'} unmountOnExit>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: isDark ? '#0f172a' : '#f8fafc',
+              border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              The internal simulator will generate realistic sensor readings automatically. No additional configuration
+              needed — ideal for demos and development environments.
+            </Typography>
+          </Box>
+        </Collapse>
       </Paper>
 
       {/* Action Buttons */}

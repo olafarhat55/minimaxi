@@ -200,21 +200,7 @@ const LoginPage = () => {
               </Link>
             </Typography>
 
-            {/* Demo credentials hint */}
-            <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                Demo Credentials:
-              </Typography>
-              <Typography variant="caption" display="block">
-                Admin: admin@abc.com / admin123
-              </Typography>
-              <Typography variant="caption" display="block">
-                Engineer: sara@abc.com / engineer123
-              </Typography>
-              <Typography variant="caption" display="block">
-                Technician: khaled@abc.com / tech123
-              </Typography>
-            </Box>
+            
           </CardContent>
         </Card>
       </Container>

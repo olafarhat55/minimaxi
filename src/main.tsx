@@ -15,10 +15,10 @@ import App from './App';
  * pass through without console warnings.
  */
 async function enableMocking(): Promise<void> {
-  if (import.meta.env.DEV && import.meta.env.VITE_USE_MSW === 'true') {
-    const { worker } = await import('./mocks/browser');
-    await worker.start({ onUnhandledRequest: 'bypass' });
-  }
+  if (!import.meta.env.DEV) return;
+  if (import.meta.env.VITE_USE_MSW !== 'true') return;
+  const { worker } = await import('./mocks/browser');
+  await worker.start({ onUnhandledRequest: 'bypass' });
 }
 
 enableMocking().then(() => {

@@ -48,20 +48,27 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, health, trend, sensors, insights] = await Promise.all([
+      // Use allSettled so a single failing endpoint doesn't blank the whole
+      // dashboard — each section renders with whatever data resolved.
+      const [statsData, health, trend, sensors, insights] = await Promise.allSettled([
         api.getDashboardStats(),
         api.getHealthDistribution(),
         api.getFailureTrend('monthly'),
         api.getSensorTrends(),
         api.getAIInsights(),
       ]);
-      setStats(statsData);
-      setHealthData(health);
-      setFailureTrend(trend);
-      setSensorTrends(sensors);
-      setAIInsights(insights);
-    } catch {
-      setError('Failed to load dashboard data. Please check your connection and try again.');
+      if (statsData.status === 'fulfilled') setStats(statsData.value);
+      if (health.status === 'fulfilled') setHealthData(health.value);
+      if (trend.status === 'fulfilled') setFailureTrend(trend.value);
+      if (sensors.status === 'fulfilled') setSensorTrends(sensors.value);
+      if (insights.status === 'fulfilled') setAIInsights(insights.value);
+
+      // Only surface a blocking error if every endpoint failed; partial
+      // failures load silently with the sections that succeeded.
+      const results = [statsData, health, trend, sensors, insights];
+      if (results.every((r) => r.status === 'rejected')) {
+        setError('Failed to load dashboard data. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -164,6 +171,15 @@ const Dashboard = () => {
       </Box>
     );
   }
+
+ console.log("stats:", stats);
+  console.log("healthData:", healthData);
+  console.log("failureTrend:", failureTrend);
+  console.log("trendPeriod:", trendPeriod);
+  console.log("sensorTrends:", sensorTrends);
+  console.log("aiInsights:", aiInsights);
+
+  
 
   return (
     <Box>

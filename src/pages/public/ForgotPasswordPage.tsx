@@ -16,9 +16,11 @@ import {
   Email as EmailIcon,
   CheckCircle as CheckCircleIcon,
   ArrowBack as ArrowBackIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { validateEmail } from '../../utils/validation';
+import { api } from '../../services/api';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -27,12 +29,19 @@ const ForgotPasswordPage = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleChange = (e) => {
+  // OTP state
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const emailError = validateEmail(email);
@@ -43,17 +52,54 @@ const ForgotPasswordPage = () => {
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log('Password reset email would be sent to:', email);
+      await api.forgotPassword(email);
       setSubmitted(true);
-    } catch (err) {
-      setError('Failed to send reset email. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResend = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+    setOtpError('');
+    try {
+      await api.forgotPassword(email);
+      setResendSuccess(true);
+      // hide success message after 3 seconds
+      setTimeout(() => setResendSuccess(false), 3000);
+    } catch (err: any) {
+      setOtpError('Failed to resend. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) {
+      setOtpError('Please enter the OTP code.');
+      return;
+    }
+    if (otp.trim().length < 4) {
+      setOtpError('OTP code is too short.');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      // Navigate to reset-password page passing email + otp
+      navigate(`/reset-password?email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp.trim())}`);
+    } catch (err: any) {
+      setOtpError(err.message || 'Invalid OTP. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // ── "Check Your Email" screen ─────────────────────────────────────
   if (submitted) {
     return (
       <Box
@@ -74,7 +120,7 @@ const ForgotPasswordPage = () => {
                 Check Your Email
               </Typography>
 
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
                 If an account exists with
               </Typography>
 
@@ -82,7 +128,7 @@ const ForgotPasswordPage = () => {
                 variant="body1"
                 fontWeight={600}
                 sx={{
-                  mb: 2,
+                  mb: 1,
                   p: 1.5,
                   bgcolor: '#f5f5f5',
                   borderRadius: 1,
@@ -93,39 +139,70 @@ const ForgotPasswordPage = () => {
               </Typography>
 
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                you will receive a password reset link shortly.
+                you will receive a password reset code shortly.
               </Typography>
 
               <Divider sx={{ my: 3 }} />
 
-              {/* Demo Mode Section */}
-              <Box
-                sx={{
-                  bgcolor: '#fff8e1',
-                  border: '1px solid #ffe082',
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 3,
+              {/* OTP input */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Enter the OTP code sent to your email:
+              </Typography>
+
+              {otpError && (
+                <Alert severity="error" sx={{ mb: 2, textAlign: 'left' }}>
+                  {otpError}
+                </Alert>
+              )}
+
+              {resendSuccess && (
+                <Alert severity="success" sx={{ mb: 2, textAlign: 'left' }}>
+                  A new OTP has been sent to your email.
+                </Alert>
+              )}
+
+              <TextField
+                fullWidth
+                label="OTP Code"
+                value={otp}
+                onChange={(e) => {
+                  setOtp(e.target.value);
+                  setOtpError('');
                 }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-                  <EmailIcon sx={{ color: '#f57c00' }} />
-                  <Typography variant="subtitle2" fontWeight={600} color="#e65100">
-                    Demo Mode
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  In production, an email would be sent with a reset link. Click the button below to simulate.
-                </Typography>
-              </Box>
+                margin="normal"
+                placeholder="e.g. 437798"
+                inputProps={{ maxLength: 10 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                error={!!otpError}
+                sx={{ mb: 2 }}
+              />
 
               <Button
+                fullWidth
                 variant="contained"
                 size="large"
-                onClick={() => navigate('/reset-password?token=demo-reset-token')}
-                sx={{ px: 4, py: 1.5, mb: 2 }}
+                disabled={otpLoading}
+                onClick={handleVerifyOtp}
+                sx={{ mb: 1.5 }}
               >
-                Go to Reset Password Page
+                {otpLoading ? <CircularProgress size={24} color="inherit" /> : 'Verify OTP'}
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                size="medium"
+                disabled={resendLoading}
+                onClick={handleResend}
+                sx={{ mb: 2 }}
+              >
+                {resendLoading ? <CircularProgress size={20} color="inherit" /> : 'Resend Email'}
               </Button>
 
               <Box>
@@ -145,6 +222,7 @@ const ForgotPasswordPage = () => {
     );
   }
 
+  // ── Initial "Forgot Password" form ────────────────────────────────
   return (
     <Box
       sx={{
@@ -184,7 +262,7 @@ const ForgotPasswordPage = () => {
               Forgot Password?
             </Typography>
             <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we'll send you a code to reset your password.
             </Typography>
 
             {error && (
@@ -221,7 +299,7 @@ const ForgotPasswordPage = () => {
                 disabled={loading}
                 sx={{ py: 1.5, mt: 3, mb: 2 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Send Reset Link'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Send Reset Code'}
               </Button>
 
               <Button

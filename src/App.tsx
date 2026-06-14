@@ -6,13 +6,11 @@ import { ProtectedRoute } from './components/common';
 import { MainLayout } from './components/layout';
 import { getDefaultRoute } from './utils/permissions';
 
-// Redirect to the user's role-appropriate default page
 const DefaultRedirect = () => {
   const { user } = useAuth();
   return <Navigate to={getDefaultRoute(user)} replace />;
 };
 
-// Public Pages
 import {
   LandingPage,
   LoginPage,
@@ -23,10 +21,8 @@ import {
   ResetPasswordPage,
 } from './pages/public';
 
-// Setup Pages
 import { SetupWizard } from './pages/setup';
 
-// App Pages
 import {
   Dashboard,
   MachinesList,
@@ -58,15 +54,16 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/request-access" element={<RequestAccessPage />} />
                 <Route path="/activate" element={<ActivatePage />} />
+                <Route path="/set-password" element={<ActivatePage />} />
                 <Route path="/logout" element={<LogoutPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                {/* Setup Wizard - Admin Only */}
+                {/* Setup Wizard */}
                 <Route
                   path="/setup/*"
                   element={
-                    <ProtectedRoute roles={['admin']}>
+                    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin']}>
                       <SetupWizard />
                     </ProtectedRoute>
                   }
@@ -80,21 +77,18 @@ function App() {
                     </ProtectedRoute>
                   }
                 >
-                  {/* Dashboard - All roles (Technician sees basic overview) */}
                   <Route
                     path="/dashboard"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer', 'technician']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
                         <Dashboard />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Machines/Assets - All roles (Technician is read-only) */}
                   <Route
                     path="/machines"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer', 'technician']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
                         <MachinesList />
                       </ProtectedRoute>
                     }
@@ -102,7 +96,7 @@ function App() {
                   <Route
                     path="/machines/add"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
                         <AddAsset />
                       </ProtectedRoute>
                     }
@@ -110,49 +104,52 @@ function App() {
                   <Route
                     path="/machines/:id"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer', 'technician']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
                         <MachineDetails />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Work Orders - Admin & Engineer (full access) */}
-                  <Route
-                    path="/work-orders"
-                    element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
-                        <WorkOrders />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/work-orders/new"
-                    element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
-                        <CreateWorkOrder />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/work-orders/:id"
-                    element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
-                        <WorkOrderDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Maintenance Planning - Admin & Engineer */}
+                 <Route
+  path="/work-orders"
+  element={
+    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+      <WorkOrders />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/work-orders/new"
+  element={
+    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+      <CreateWorkOrder />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/work-orders/:id/edit"
+  element={
+    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+      <CreateWorkOrder />
+    </ProtectedRoute>
+  }
+/>
+{/* ✅ الـ route الناقص */}
+<Route
+  path="/work-orders/:id"
+  element={
+    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
+      <WorkOrderDetails />
+    </ProtectedRoute>
+  }
+/>
                   <Route
                     path="/maintenance"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
                         <MaintenancePlanning />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* My Work Orders - Technician only */}
                   <Route
                     path="/my-work-orders"
                     element={
@@ -161,51 +158,39 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Alerts - Admin & Engineer only */}
                   <Route
                     path="/alerts"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
                         <Alerts />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Reports - Admin & Engineer */}
                   <Route
                     path="/reports"
                     element={
-                      <ProtectedRoute roles={['admin', 'engineer']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
                         <Reports />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* User Management - Admin Only */}
                   <Route
                     path="/users"
                     element={
-                      <ProtectedRoute roles={['admin']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin']}>
                         <UserManagement />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Settings - Admin Only */}
                   <Route
                     path="/settings"
                     element={
-                      <ProtectedRoute roles={['admin']}>
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin']}>
                         <Settings />
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* Profile - All authenticated users */}
                   <Route path="/profile" element={<Profile />} />
-
-                  {/* Default redirect based on user role */}
                   <Route path="*" element={<DefaultRedirect />} />
                 </Route>
               </Routes>

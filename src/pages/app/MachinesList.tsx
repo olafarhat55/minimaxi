@@ -24,7 +24,6 @@ import {
   Search as SearchIcon,
   Visibility as ViewIcon,
   Assignment as WorkOrderIcon,
-  History as HistoryIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -321,9 +320,7 @@ const MachinesList = () => {
                           >
                             <WorkOrderIcon fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" title="View History">
-                            <HistoryIcon fontSize="small" />
-                          </IconButton>
+                          
                         </>
                       )}
                     </TableCell>

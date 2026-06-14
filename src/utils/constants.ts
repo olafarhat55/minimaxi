@@ -3,6 +3,8 @@ export const ROLES = {
   ADMIN: 'admin',
   ENGINEER: 'engineer',
   TECHNICIAN: 'technician',
+  SYSTEM_ADMIN: 'system_admin',
+  COMPANY_ADMIN: 'company_admin',
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
@@ -77,6 +79,26 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Users', path: '/users', icon: 'People' },
     { label: 'Settings', path: '/settings', icon: 'Settings' },
   ],
+  [ROLES.SYSTEM_ADMIN]: [
+    { label: 'Dashboard', path: '/dashboard', icon: 'Dashboard' },
+    { label: 'Assets', path: '/machines', icon: 'PrecisionManufacturing' },
+    { label: 'Work Orders', path: '/work-orders', icon: 'Assignment' },
+    { label: 'Maintenance', path: '/maintenance', icon: 'Build' },
+    { label: 'Reports', path: '/reports', icon: 'Assessment' },
+    { label: 'Alerts', path: '/alerts', icon: 'NotificationsActive' },
+    { label: 'Users', path: '/users', icon: 'People' },
+    { label: 'Settings', path: '/settings', icon: 'Settings' },
+  ],
+  [ROLES.COMPANY_ADMIN]: [
+    { label: 'Dashboard', path: '/dashboard', icon: 'Dashboard' },
+    { label: 'Assets', path: '/machines', icon: 'PrecisionManufacturing' },
+    { label: 'Work Orders', path: '/work-orders', icon: 'Assignment' },
+    { label: 'Maintenance', path: '/maintenance', icon: 'Build' },
+    { label: 'Reports', path: '/reports', icon: 'Assessment' },
+    { label: 'Alerts', path: '/alerts', icon: 'NotificationsActive' },
+    { label: 'Users', path: '/users', icon: 'People' },
+    { label: 'Settings', path: '/settings', icon: 'Settings' },
+  ],
   [ROLES.ENGINEER]: [
     { label: 'Dashboard', path: '/dashboard', icon: 'Dashboard' },
     { label: 'Assets', path: '/machines', icon: 'PrecisionManufacturing' },
@@ -111,7 +133,7 @@ export const STATUS_COLORS: Record<MachineStatus, string> = {
   [MACHINE_STATUS.OFFLINE]: '#9e9e9e',
 };
 
-// API Endpoints (for mock/real API)
+// API Endpoints
 export const API_ENDPOINTS = {
   AUTH: '/api/auth',
   MACHINES: '/api/machines',

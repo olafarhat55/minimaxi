@@ -14,7 +14,6 @@ import {
   FormControlLabel,
   Checkbox,
   CircularProgress,
-  Divider,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -50,29 +49,20 @@ const RequestAccessPage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
   const [error, setError] = useState('');
+  const [resendSuccess, setResendSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    // Real-time validation
     let fieldError = '';
     switch (name) {
-      case 'company_name':
-        fieldError = validateCompanyName(value);
-        break;
-      case 'email':
-        fieldError = validateEmail(value);
-        break;
-      case 'phone':
-        fieldError = validatePhone(value);
-        break;
-      case 'contact_person':
-        fieldError = validateName(value);
-        break;
-      default:
-        break;
+      case 'company_name':  fieldError = validateCompanyName(value); break;
+      case 'email':         fieldError = validateEmail(value);        break;
+      case 'phone':         fieldError = validatePhone(value);        break;
+      case 'contact_person':fieldError = validateName(value);         break;
+      default: break;
     }
     setErrors((prev) => ({ ...prev, [name]: fieldError }));
     setError('');
@@ -92,45 +82,39 @@ const RequestAccessPage = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    // Company name validation
     const companyError = validateCompanyName(formData.company_name);
     if (companyError) newErrors.company_name = companyError;
-
-    // Industry validation
-    if (!formData.industry) {
-      newErrors.industry = 'Please select an industry';
-    }
-
-    // Contact person validation
+    if (!formData.industry) newErrors.industry = 'Please select an industry';
     const contactError = validateName(formData.contact_person);
     if (contactError) newErrors.contact_person = contactError;
-
-    // Email validation
     const emailError = validateEmail(formData.email);
     if (emailError) newErrors.email = emailError;
-
-    // Phone validation
     const phoneError = validatePhone(formData.phone);
     if (phoneError) newErrors.phone = phoneError;
-
-    // Service type validation
-    if (formData.service_type.length === 0) {
+    if (formData.service_type.length === 0)
       newErrors.service_type = 'Please select at least one service';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const buildRequestBody = () => ({
+    company_name:         formData.company_name,
+    contact_person_name:  formData.contact_person,
+    email:                formData.email,
+    phone:                formData.phone,
+    industry:             formData.industry,
+    requested_service:
+      formData.service_type.length === 1
+        ? formData.service_type[0].toUpperCase()
+        : 'BOTH',
+  });
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!validateForm()) return;
-
     setLoading(true);
     try {
-      await api.requestAccess(formData);
+      await api.requestAccess(buildRequestBody());
       setSubmittedEmail(formData.email);
       setSubmitted(true);
     } catch (err: any) {
@@ -140,10 +124,22 @@ const RequestAccessPage = () => {
     }
   };
 
-  const handleGoToActivation = () => {
-    navigate('/activate?token=demo-admin-token');
+  // ── Resend — بتعيد نفس الـ request بدون form event ──────────────────────
+  const handleResend = async () => {
+    setLoading(true);
+    setResendSuccess(false);
+    setError('');
+    try {
+      await api.requestAccess(buildRequestBody());
+      setResendSuccess(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ── Success Screen ────────────────────────────────────────────────────────
   if (submitted) {
     return (
       <Box
@@ -171,13 +167,7 @@ const RequestAccessPage = () => {
               <Typography
                 variant="body1"
                 fontWeight={600}
-                sx={{
-                  mb: 3,
-                  p: 1.5,
-                  bgcolor: '#f5f5f5',
-                  borderRadius: 1,
-                  display: 'inline-block'
-                }}
+                sx={{ mb: 3, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1, display: 'inline-block' }}
               >
                 {submittedEmail}
               </Typography>
@@ -186,47 +176,45 @@ const RequestAccessPage = () => {
                 Please check your inbox and click the activation link to continue.
               </Typography>
 
-              <Divider sx={{ my: 3 }} />
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              )}
 
-              {/* Demo Mode Section */}
-              <Box
-                sx={{
-                  bgcolor: '#fff8e1',
-                  border: '1px solid #ffe082',
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 3,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-                  <EmailIcon sx={{ color: '#f57c00' }} />
-                  <Typography variant="subtitle2" fontWeight={600} color="#e65100">
-                    Demo Mode
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  Since this is a demo, click the button below to simulate clicking the email activation link.
-                </Typography>
-              </Box>
+              {resendSuccess && (
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+      bgcolor: '#f0fdf4',
+      border: '1px solid #86efac',
+      borderRadius: 2,
+      px: 2,
+      py: 1.5,
+      mb: 2,
+    }}
+  >
+    <CheckCircleIcon sx={{ color: '#22c55e', fontSize: 20 }} />
+    <Typography variant="body2" color="#15803d" fontWeight={500}>
+      Email resent successfully! Please check your inbox.
+    </Typography>
+  </Box>
+)}
 
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleGoToActivation}
-                sx={{ px: 4, py: 1.5 }}
-              >
-                Go to Activation Page
-              </Button>
-
-              <Box sx={{ mt: 3 }}>
+              <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
                 <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => navigate('/login')}
-                  sx={{ color: 'text.secondary' }}
+                  variant="contained"
+                  size="large"
+                  startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <EmailIcon />}
+                  onClick={handleResend}
+                  disabled={loading}
+                  sx={{ py: 1.5, px: 4 }}
                 >
-                  Back to Login
+                  {loading ? 'Sending...' : 'Resend Email'}
                 </Button>
+                
               </Box>
             </CardContent>
           </Card>
@@ -235,6 +223,7 @@ const RequestAccessPage = () => {
     );
   }
 
+  // ── Request Form ──────────────────────────────────────────────────────────
   return (
     <Box
       sx={{
@@ -285,72 +274,46 @@ const RequestAccessPage = () => {
 
             <form onSubmit={handleSubmit}>
               <TextField
-                fullWidth
-                label="Company Name"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.company_name}
+                fullWidth label="Company Name" name="company_name"
+                value={formData.company_name} onChange={handleChange}
+                margin="normal" error={!!errors.company_name}
                 helperText={errors.company_name || 'Letters, numbers, spaces, &, ., - (3-100 chars)'}
                 required
               />
 
               <TextField
-                fullWidth
-                select
-                label="Industry"
-                name="industry"
-                value={formData.industry}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.industry}
-                helperText={errors.industry}
-                required
+                fullWidth select label="Industry" name="industry"
+                value={formData.industry} onChange={handleChange}
+                margin="normal" error={!!errors.industry}
+                helperText={errors.industry} required
               >
                 {industries.map((industry) => (
-                  <MenuItem key={industry} value={industry}>
-                    {industry}
-                  </MenuItem>
+                  <MenuItem key={industry} value={industry}>{industry}</MenuItem>
                 ))}
               </TextField>
 
               <TextField
-                fullWidth
-                label="Contact Person"
-                name="contact_person"
-                value={formData.contact_person}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.contact_person}
+                fullWidth label="Contact Person" name="contact_person"
+                value={formData.contact_person} onChange={handleChange}
+                margin="normal" error={!!errors.contact_person}
                 helperText={errors.contact_person || 'Letters only (2-50 chars)'}
                 required
               />
 
               <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.email}
+                fullWidth label="Email" name="email" type="email"
+                value={formData.email} onChange={handleChange}
+                margin="normal" error={!!errors.email}
                 helperText={errors.email || 'e.g., user@company.com'}
                 required
               />
 
               <TextField
-                fullWidth
-                label="Phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.phone}
+                fullWidth label="Phone" name="phone"
+                value={formData.phone} onChange={handleChange}
+                margin="normal" error={!!errors.phone}
                 helperText={errors.phone || 'Egyptian format: 01012345678 or +201012345678'}
-                placeholder="01012345678"
-                required
+                placeholder="01012345678" required
               />
 
               <Box sx={{ mt: 2, mb: 1 }}>
@@ -379,12 +342,8 @@ const RequestAccessPage = () => {
               </Box>
 
               <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{ py: 1.5, mt: 2, mb: 2 }}
+                type="submit" fullWidth variant="contained" size="large"
+                disabled={loading} sx={{ py: 1.5, mt: 2, mb: 2 }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit Request'}
               </Button>

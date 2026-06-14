@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { api } from '../services/api';
 import type { User } from '../types';
 
-const VALID_ROLES = ['admin', 'engineer', 'technician'] as const;
+const VALID_ROLES = ['admin', 'engineer', 'technician', 'system_admin', 'company_admin'] as const;
 
 interface AuthContextValue {
   user: User | null;
@@ -11,6 +11,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  setUserDirectly: (user: User) => void;
   clearError: () => void;
   isAuthenticated: boolean;
 }
@@ -31,9 +32,6 @@ interface AuthProviderProps {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(() => {
-    // Initialise user synchronously from sessionStorage so the very first
-    // render already has the correct auth state — this eliminates the
-    // flash where user is null and ProtectedRoute might redirect.
     try {
       const storedUser = sessionStorage.getItem('user');
       const storedToken = sessionStorage.getItem('token');
@@ -43,7 +41,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.log('[Auth] Restored user from sessionStorage:', parsed.email, 'role:', parsed.role);
           return parsed;
         }
-        // Invalid / corrupt stored user — clear it
         console.warn('[Auth] Stored user has invalid role:', parsed?.role, '— clearing session');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('token');
@@ -54,13 +51,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
     return null;
   });
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     setLoading(true);
-
     try {
       const response = await api.login(email, password) as any;
       const { user: userData, token } = response;
@@ -105,6 +102,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     });
   }, []);
 
+  // بتسيت الـ user من الأول من غير ما تحتاجي user موجود قبلها
+  // بتستخدمها بعد الـ activation مباشرة
+  const setUserDirectly = useCallback((userData: User) => {
+    console.log('[Auth] setUserDirectly:', userData.email, 'role:', userData.role);
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -116,6 +121,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     logout,
     updateUser,
+    setUserDirectly,
     clearError,
     isAuthenticated: !!user,
   };

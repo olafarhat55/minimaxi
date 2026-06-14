@@ -240,13 +240,29 @@ const MaintenancePlanning = () => {
   }, []);
 
   // Maintenance load forecast data
-  const loadForecastData = [
-    { week: 'Week 1', scheduled: 5, predicted: 2 },
-    { week: 'Week 2', scheduled: 3, predicted: 4 },
-    { week: 'Week 3', scheduled: 7, predicted: 1 },
-    { week: 'Week 4', scheduled: 4, predicted: 3 },
+ const loadForecastData = useMemo(() => {
+  const weekRanges = [
+    { week: 'Week 1', start: 1,  end: 7  },
+    { week: 'Week 2', start: 8,  end: 14 },
+    { week: 'Week 3', start: 15, end: 21 },
+    { week: 'Week 4', start: 22, end: 31 },
   ];
-
+  return weekRanges.map(({ week, start, end }) => {
+    const weekEvents = events.filter((e) => {
+      const day = new Date(e.date).getDate();
+      return day >= start && day <= end;
+    });
+    return {
+      week,
+      scheduled: weekEvents
+        .filter((e) => e.type === 'scheduled')
+        .reduce((s, e) => s + e.count, 0),
+      predicted: weekEvents
+        .filter((e) => e.type === 'critical' || e.type === 'warning')
+        .reduce((s, e) => s + e.count, 0),
+    };
+  });
+}, [events]);
   // react-to-print prints the live DOM through the browser's native print engine,
   // which correctly renders the calendar, Recharts charts and MUI components
   // without cloning or off-screen rendering tricks.

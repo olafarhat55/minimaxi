@@ -14,13 +14,22 @@ const MainLayout = () => {
   const { isDark } = useThemeMode();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Initialize from localStorage for desktop, false for mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [notifications, setNotifications] = useState<any[]>([]);
+
+  // ✅ الحل: راقب تغيير isMobile وعدّل الـ state
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    } else {
+      const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      setSidebarOpen(saved !== null ? JSON.parse(saved) : true);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -35,7 +44,6 @@ const MainLayout = () => {
     fetchNotifications();
   }, []);
 
-  // Save preference to localStorage (only for desktop)
   const saveSidebarPreference = useCallback((isOpen: boolean) => {
     if (!isMobile) {
       localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(isOpen));
@@ -57,7 +65,11 @@ const MainLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', overflow: 'hidden' }}>
-      <Header onMenuClick={handleMenuClick} notifications={notifications} sidebarOpen={sidebarOpen} />
+      <Header
+        onMenuClick={handleMenuClick}
+        notifications={notifications}
+        sidebarOpen={sidebarOpen}
+      />
       <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
       <Box
         component="main"

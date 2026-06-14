@@ -80,6 +80,8 @@ interface SensorThreshold {
   criticalThreshold: number;
   canOverride: boolean;
   description: string;
+  asset_type_id?: number;
+  asset_type_name?: string; // ← ده اللي هنستخدمه مباشرة
 }
 
 interface AIModelInfo {
@@ -129,7 +131,9 @@ const BLANK_ASSET: Omit<AssetType, 'id'> = {
 };
 
 const BLANK_SENSOR: Omit<SensorThreshold, 'id'> = {
-  name: '', unit: '', warningThreshold: 0, criticalThreshold: 0, canOverride: true, description: '',
+  name: '', unit: '', warningThreshold: 0, criticalThreshold: 0, 
+  canOverride: true, description: '',
+  asset_type_id: undefined, // ← أضيفي
 };
 
 const TRAINING_LOGS: TrainingLog[] = [
@@ -246,7 +250,8 @@ const Settings = () => {
   const { isDark } = useThemeMode();
 
   // ── Shared state ────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]   = useState(0);
+  const tabParam = new URLSearchParams(window.location.search).get('tab');
+const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [snackbar, setSnackbar]     = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -264,11 +269,13 @@ const Settings = () => {
   const [assetForm, setAssetForm]     = useState<Omit<AssetType, 'id'>>(BLANK_ASSET);
   const [assetErrors, setAssetErrors] = useState<Record<string, string>>({});
 
+  // ── Derived: id → name map for asset types (used in Sensors tab) ────────────
+ 
   // ── Tab 3: Sensor Thresholds ────────────────────────────────────────────────
   const [sensors, setSensors]           = useState<SensorThreshold[]>([]);
   const [sensorSearch, setSensorSearch] = useState('');
   const [sensorModal, setSensorModal]   = useState({ open: false, editing: null as SensorThreshold | null });
-  const [sensorForm, setSensorForm]     = useState<Omit<SensorThreshold, 'id'>>(BLANK_SENSOR);
+  const [sensorForm, setSensorForm] = useState<Omit<SensorThreshold, 'id'>>(BLANK_SENSOR);
   const [sensorErrors, setSensorErrors] = useState<Record<string, string>>({});
 
   // ── Tab 4: AI Model ─────────────────────────────────────────────────────────
@@ -452,46 +459,44 @@ const Settings = () => {
   };
 
   const openEditSensor = (item: SensorThreshold) => {
-    setSensorForm({
-      name: item.name, unit: item.unit,
-      warningThreshold: item.warningThreshold, criticalThreshold: item.criticalThreshold,
-      canOverride: item.canOverride, description: item.description,
-    });
-    setSensorErrors({});
-    setSensorModal({ open: true, editing: item });
-  };
+  setSensorForm({
+    name: item.name, unit: item.unit,
+    warningThreshold: item.warningThreshold, criticalThreshold: item.criticalThreshold,
+    canOverride: item.canOverride, description: item.description,
+    asset_type_id: item.asset_type_id, // ← أضيفي السطر ده
+  });
+  setSensorErrors({});
+  setSensorModal({ open: true, editing: item });
+};
 
   const validateSensor = () => {
-    const errors: Record<string, string> = {};
-    if (!sensorForm.name.trim())  errors.name = 'Sensor name is required';
-    if (!sensorForm.unit.trim())  errors.unit = 'Unit is required';
-    if (sensorForm.warningThreshold === '' as unknown as number || isNaN(Number(sensorForm.warningThreshold))) {
-      errors.warningThreshold = 'Warning threshold is required';
-    }
-    if (sensorForm.criticalThreshold === '' as unknown as number || isNaN(Number(sensorForm.criticalThreshold))) {
-      errors.criticalThreshold = 'Critical threshold is required';
-    } else if (Number(sensorForm.criticalThreshold) <= Number(sensorForm.warningThreshold)) {
-      errors.criticalThreshold = 'Critical threshold must be greater than warning threshold';
-    }
-    if (sensors.some(
-      (s) => s.name.toLowerCase() === sensorForm.name.trim().toLowerCase() && s.id !== sensorModal.editing?.id,
-    )) {
-      errors.name = 'A sensor with this name already exists';
-    }
-    setSensorErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  const errors: Record<string, string> = {};
+  if (!sensorForm.name.trim())  errors.name = 'Sensor name is required';
+  if (!sensorForm.unit.trim())  errors.unit = 'Unit is required';
+  if (sensorForm.warningThreshold === '' as unknown as number || isNaN(Number(sensorForm.warningThreshold))) {
+    errors.warningThreshold = 'Warning threshold is required';
+  }
+  if (sensorForm.criticalThreshold === '' as unknown as number || isNaN(Number(sensorForm.criticalThreshold))) {
+    errors.criticalThreshold = 'Critical threshold is required';
+  } else if (Number(sensorForm.criticalThreshold) <= Number(sensorForm.warningThreshold)) {
+    errors.criticalThreshold = 'Critical threshold must be greater than warning threshold';
+  }
+  if (!sensorForm.asset_type_id) errors.asset_type_id = 'Asset type is required'; // ← هنا
+  setSensorErrors(errors);
+  return Object.keys(errors).length === 0;
+};
 
   const handleSaveSensor = async () => {
     if (!validateSensor()) return;
     setSaving(true);
     try {
-      const payload = {
-        ...sensorForm,
-        warningThreshold:  Number(sensorForm.warningThreshold),
-        criticalThreshold: Number(sensorForm.criticalThreshold),
-      };
-      if (sensorModal.editing) {
+    const payload = {
+  ...sensorForm,
+  warningThreshold:  Number(sensorForm.warningThreshold),
+  criticalThreshold: Number(sensorForm.criticalThreshold),
+  assetTypeId:  sensorForm.asset_type_id ?? (sensorModal.editing as any)?.asset_type_id ?? 1, // ← عدّلي السطر ده
+  sensorTypeId: (sensorModal.editing as any)?.sensorTypeId ?? 1,
+};  if (sensorModal.editing) {
         const updated = await api.updateSensorThreshold(sensorModal.editing.id, payload);
         setSensors((prev) => prev.map((s) => s.id === sensorModal.editing!.id ? updated : s));
         showSnackbar('Sensor threshold updated successfully');
@@ -522,8 +527,12 @@ const Settings = () => {
         showSnackbar('Sensor type deleted');
       }
       setDeleteDialog({ open: false, id: 0, name: '', type: 'asset' });
-    } catch {
-      showSnackbar('Failed to delete item', 'error');
+    } catch (err: any) {
+      const isFK = JSON.stringify(err).includes('foreign key') || JSON.stringify(err).includes('threshold');
+      const msg = isFK
+        ? 'Cannot delete this asset type because it has sensor thresholds linked to it. Delete the thresholds first.'
+        : 'Failed to delete item';
+      showSnackbar(msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -537,7 +546,6 @@ const Settings = () => {
     try {
       await api.retrainAIModel();
       showSnackbar('Model retraining started successfully. You will be notified when complete.');
-      // Simulate training completion after 5 seconds
       setTimeout(() => {
         setRetraining(false);
         setModelStatus('active');
@@ -675,12 +683,17 @@ const Settings = () => {
         }}
       >
         <Tabs
-          value={activeTab}
-          onChange={(_e, v: number) => setActiveTab(v)}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-        >
+  value={activeTab}
+  onChange={(_e, v: number) => {
+    setActiveTab(v);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', String(v));
+    window.history.replaceState(null, '', url.toString());
+  }}
+  variant="scrollable"
+  scrollButtons="auto"
+  sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
+>
           <Tab label="General Settings" />
           <Tab label="Asset Types" />
           <Tab label="Sensors & Thresholds" />
@@ -915,6 +928,7 @@ const Settings = () => {
                   <TableHead>
                     <TableRow sx={tableHeaderSx}>
                       <TableCell>Sensor Type</TableCell>
+                      <TableCell>Asset Type</TableCell>
                       <TableCell align="center">Unit</TableCell>
                       <TableCell align="center">Default Warning</TableCell>
                       <TableCell align="center">Default Critical</TableCell>
@@ -925,7 +939,7 @@ const Settings = () => {
                   <TableBody>
                     {filteredSensors.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                           No sensor types found.
                         </TableCell>
                       </TableRow>
@@ -936,6 +950,12 @@ const Settings = () => {
                           {item.description && (
                             <Typography variant="caption" color="text.secondary">{item.description}</Typography>
                           )}
+                        </TableCell>
+                        {/* ── NEW: Asset Type column ── */}
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                           {item.asset_type_name ?? '—'}
+                          </Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Chip label={item.unit} size="small" variant="outlined" />
@@ -999,7 +1019,6 @@ const Settings = () => {
                       {aiModel.type}
                     </Typography>
                   </Box>
-                  {/* Dynamic status badge */}
                   <Chip
                     icon={
                       modelStatus === 'active'
@@ -1083,7 +1102,6 @@ const Settings = () => {
                   </Button>
                 </Box>
 
-                {/* Progress bar shown while retraining */}
                 {retraining && (
                   <Box sx={{ mt: 2.5 }}>
                     <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
@@ -1118,11 +1136,7 @@ const Settings = () => {
                             <Typography fontWeight={600} color="#22c55e">{h.accuracy}%</Typography>
                           </TableCell>
                           <TableCell align="center">
-                            <Chip
-                              label={h.status}
-                              size="small"
-                              sx={statusChipSx(h.status)}
-                            />
+                            <Chip label={h.status} size="small" sx={statusChipSx(h.status)} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1177,9 +1191,7 @@ const Settings = () => {
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">
-                          Confidence Threshold
-                        </Typography>
+                        <Typography variant="body2">Confidence Threshold</Typography>
                         <Typography variant="body2" fontWeight={700}>
                           {advancedSettings.confidenceThreshold}%
                         </Typography>
@@ -1245,50 +1257,84 @@ const Settings = () => {
         <DialogTitle>{assetModal.editing ? 'Edit Asset Type' : 'Add Asset Type'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Asset Type Name *"
-                value={assetForm.name}
-                onChange={(e) => setAssetForm((p) => ({ ...p, name: e.target.value }))}
-                error={!!assetErrors.name}
-                helperText={assetErrors.name}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Description"
-                value={assetForm.description}
-                onChange={(e) => setAssetForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Default Maintenance Interval (days)"
-                value={assetForm.maintenanceInterval}
-                inputProps={{ min: 1 }}
-                onChange={(e) => setAssetForm((p) => ({ ...p, maintenanceInterval: Number(e.target.value) }))}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={assetForm.active}
-                    color="success"
-                    onChange={(_, checked) => setAssetForm((p) => ({ ...p, active: checked }))}
-                  />
-                }
-                label="Active"
-                sx={{ mt: 1 }}
-              />
-            </Grid>
-          </Grid>
+  <Grid size={{ xs: 12 }}>
+    <TextField
+      select fullWidth
+      label="Asset Type *"
+      value={sensorForm.asset_type_id ?? ''}
+      onChange={(e) => setSensorForm((p) => ({ ...p, asset_type_id: Number(e.target.value) }))}
+      error={!!sensorErrors.asset_type_id}
+      helperText={sensorErrors.asset_type_id}
+    >
+      {assetTypes.map((a) => (
+        <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
+      ))}
+    </TextField>
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6 }}>
+    <TextField
+      fullWidth
+      label="Sensor Name *"
+      value={sensorForm.name}
+      onChange={(e) => setSensorForm((p) => ({ ...p, name: e.target.value }))}
+      error={!!sensorErrors.name}
+      helperText={sensorErrors.name}
+    />
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6 }}>
+    <TextField
+      fullWidth
+      label="Unit *"
+      placeholder="e.g. °C, mm/s, BAR"
+      value={sensorForm.unit}
+      onChange={(e) => setSensorForm((p) => ({ ...p, unit: e.target.value }))}
+      error={!!sensorErrors.unit}
+      helperText={sensorErrors.unit}
+    />
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6 }}>
+    <TextField
+      fullWidth
+      type="number"
+      label="Default Warning Threshold *"
+      value={sensorForm.warningThreshold}
+      onChange={(e) => setSensorForm((p) => ({ ...p, warningThreshold: Number(e.target.value) }))}
+      error={!!sensorErrors.warningThreshold}
+      helperText={sensorErrors.warningThreshold}
+    />
+  </Grid>
+  <Grid size={{ xs: 12, sm: 6 }}>
+    <TextField
+      fullWidth
+      type="number"
+      label="Default Critical Threshold *"
+      value={sensorForm.criticalThreshold}
+      onChange={(e) => setSensorForm((p) => ({ ...p, criticalThreshold: Number(e.target.value) }))}
+      error={!!sensorErrors.criticalThreshold}
+      helperText={sensorErrors.criticalThreshold}
+    />
+  </Grid>
+  <Grid size={{ xs: 12 }}>
+    <TextField
+      fullWidth
+      label="Description"
+      value={sensorForm.description}
+      onChange={(e) => setSensorForm((p) => ({ ...p, description: e.target.value }))}
+    />
+  </Grid>
+  <Grid size={{ xs: 12 }}>
+    <FormControlLabel
+      control={
+        <Switch
+          checked={sensorForm.canOverride}
+          color="primary"
+          onChange={(_, checked) => setSensorForm((p) => ({ ...p, canOverride: checked }))}
+        />
+      }
+      label="Allow per-asset threshold override"
+    />
+  </Grid>
+</Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setAssetModal({ open: false, editing: null })}>Cancel</Button>
@@ -1365,6 +1411,7 @@ const Settings = () => {
                 value={sensorForm.description}
                 onChange={(e) => setSensorForm((p) => ({ ...p, description: e.target.value }))}
               />
+            
             </Grid>
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
@@ -1781,7 +1828,6 @@ const Settings = () => {
               </Box>
             </DialogTitle>
             <DialogContent dividers>
-              {/* Overview */}
               <Grid container spacing={2} sx={{ mb: 2.5 }}>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">Date &amp; Time</Typography>
@@ -1801,7 +1847,6 @@ const Settings = () => {
 
               <Divider sx={{ mb: 2.5 }} />
 
-              {/* Metrics */}
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
                 Performance Metrics
               </Typography>
@@ -1833,7 +1878,6 @@ const Settings = () => {
 
               <Divider sx={{ mb: 2.5 }} />
 
-              {/* Parameters */}
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
                 Training Parameters
               </Typography>
@@ -1865,7 +1909,6 @@ const Settings = () => {
                 ))}
               </Paper>
 
-              {/* Notes */}
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
                 Notes
               </Typography>

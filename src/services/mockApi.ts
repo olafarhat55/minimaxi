@@ -92,13 +92,11 @@ export const mockApi = {
     await delay(800);
     const activationToken = `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Store the real email + name so activateAccount can use them
     const pendingData = {
       email: data.email as string,
       name: (data.contact_person || data.name || 'New Admin') as string,
     };
     pendingActivations.set(activationToken, pendingData);
-    // Also store under the demo token so the "Go to Activation Page" button works
     pendingActivations.set('demo-admin-token', pendingData);
 
     console.log('=== ACTIVATION EMAIL SENT ===');
@@ -111,27 +109,25 @@ export const mockApi = {
     };
   },
 
-  activateAccount: async (token: string, password: string) => {
+  activateAccount: async (accessRequestId: number, password: string) => {
     await delay(500);
 
-    // Look up the real user info stored during requestAccess
-    const pending = pendingActivations.get(token ?? '');
+    const token = String(accessRequestId ?? '');
+    const pending = pendingActivations.get(token);
     const email = pending?.email ?? 'admin@newcompany.com';
     const name  = pending?.name  ?? 'New Admin';
 
-    // Determine role from token prefix (real flow uses role-specific tokens)
     const role: 'admin' | 'engineer' | 'technician' =
-      token?.includes('engineer')   ? 'engineer'   :
-      token?.includes('technician') ? 'technician' :
+      token.includes('engineer')   ? 'engineer'   :
+      token.includes('technician') ? 'technician' :
       'admin';
 
-    // Save user to users array with the real email + password so login works
     const newUser: MockUser = {
       id: users.length + 1,
       name,
       email,
       role,
-      password, // Store plaintext so login's === check passes
+      password,
       avatar: null,
       first_login: true,
       company_id: 1,
@@ -139,7 +135,6 @@ export const mockApi = {
     };
     users.push(newUser);
 
-    // Clean up pending activation
     if (token) pendingActivations.delete(token);
 
     const { password: _pw, ...userWithoutPassword } = newUser;
@@ -151,14 +146,58 @@ export const mockApi = {
     };
   },
 
+  // ── Invite flow: POST /auth/activate-invited ──────────────────────
+  activateInvitedUser: async (token: string, password: string) => {
+    await delay(500);
+
+    const pending = pendingActivations.get(token);
+    const email = pending?.email ?? 'invited@company.com';
+    const name  = pending?.name  ?? 'Invited User';
+
+    const role: 'admin' | 'engineer' | 'technician' =
+      token.includes('ENGINEER')   ? 'engineer'   :
+      token.includes('TECHNICIAN') ? 'technician' :
+      'technician';
+
+    const newUser: MockUser = {
+      id: users.length + 1,
+      name,
+      email,
+      role,
+      password,
+      avatar: null,
+      first_login: true,
+      company_id: 1,
+      created_at: new Date().toISOString(),
+      status: 'active',
+    };
+    users.push(newUser);
+
+    if (token) pendingActivations.delete(token);
+
+    const { password: _pw, ...userWithoutPassword } = newUser;
+    return {
+      success: true,
+      user: userWithoutPassword,
+      token: `mock-token-${newUser.id}-${Date.now()}`,
+    };
+  },
+  // ─────────────────────────────────────────────────────────────────
+
   inviteUser: async (data: any) => {
     await delay(500);
-    // Simulate sending invitation email
     const inviteToken = `${data.role}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // حفظ بيانات المدعو عشان activateInvitedUser يلاقيها
+    pendingActivations.set(inviteToken, {
+      email: data.email,
+      name:  data.name,
+    });
+
     console.log('=== INVITATION EMAIL SENT ===');
     console.log('To:', data.email);
     console.log('Role:', data.role);
-    console.log('Activation Link:', `/activate?token=${inviteToken}`);
+    console.log('Activation Link:', `/set-password?token=${inviteToken}`);
     console.log('=============================');
 
     const newUser = {
@@ -276,7 +315,6 @@ export const mockApi = {
 
   getMachineSensorHistory: async (id: string | number, hours: number = 24) => {
     await delay(400);
-    // Generate mock sensor history
     const history = [];
     const now = Date.now();
     for (let i = hours; i >= 0; i--) {
@@ -289,6 +327,38 @@ export const mockApi = {
       });
     }
     return history;
+  },
+
+  getMachineIssues: async (_id: string | number) => {
+    await delay(300);
+    return [] as Array<{
+      id?: number;
+      date?: string;
+      created_at?: string;
+      failure_type?: string;
+      type?: string;
+      resolution?: string;
+      downtime?: string;
+    }>;
+  },
+
+  getMachineWorkOrders: async (id: string | number) => {
+    await delay(300);
+    return workOrders.filter((wo) => wo.machine_id === Number(id));
+  },
+
+  getMachineNotes: async (_id: string | number) => {
+    await delay(300);
+    return [] as Array<{
+      id?: number;
+      author?: string;
+      created_by?: string;
+      created_at?: string;
+      date?: string;
+      content?: string;
+      text?: string;
+      note?: string;
+    }>;
   },
 
   // ============ WORK ORDERS ============
@@ -351,7 +421,7 @@ export const mockApi = {
     return { success: true };
   },
 
-  addWorkOrderNote: async (id: string | number, note: any) => {
+addWorkOrderNote: async (id: string | number, note: any) => {
     await delay(300);
     const index = workOrders.findIndex((wo) => wo.id === Number(id));
     if (index === -1) {
@@ -364,6 +434,37 @@ export const mockApi = {
     };
     workOrders[index].notes.push(newNote);
     return newNote;
+  },
+
+  completeWorkOrder: async (id: string | number, data: {
+    actionTaken: string;
+    rootCause?: string;
+    spareParts?: Array<{ name: string; quantity: number }>;
+    hoursSpent?: number;
+    minutesSpent?: number;
+    additionalNotes?: string;
+    completedByUserId: number;
+  }) => {
+    await delay(400);
+    const index = workOrders.findIndex((wo) => wo.id === Number(id));
+    if (index === -1) {
+      throw new Error('Work order not found');
+    }
+
+    workOrders[index] = {
+      ...workOrders[index],
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      action_taken: data.actionTaken,
+      root_cause: data.rootCause,
+      spare_parts: data.spareParts,
+      hours_spent: data.hoursSpent,
+      minutes_spent: data.minutesSpent,
+      additional_notes: data.additionalNotes,
+      completed_by: data.completedByUserId,
+    } as WorkOrder;
+
+    return { success: true, message: `Work order ${id} marked as completed.` };
   },
 
   // ============ ALERTS ============
@@ -395,7 +496,6 @@ export const mockApi = {
     };
     return alerts[index];
   },
-
   // ============ USERS ============
   getUsers: async () => {
     await delay(400);
@@ -420,7 +520,7 @@ export const mockApi = {
       first_login: true,
       company_id: 1,
       created_at: new Date().toISOString(),
-      password: 'temp123', // Temporary password
+      password: 'temp123',
       ...data,
     };
     users.push(newUser);
@@ -448,16 +548,12 @@ export const mockApi = {
   updateAvatar: async (id: string | number, base64Image: string, sessionUser?: User) => {
     await delay(300);
 
-    // 1. Try exact ID match
     let index = users.findIndex((u) => u.id === Number(id));
 
-    // 2. Email fallback — handles the case where a dynamic user's ID is no longer in
-    //    the in-memory array after a page refresh resets users to [...mockUsers]
     if (index === -1 && sessionUser?.email) {
       index = users.findIndex((u) => u.email === sessionUser.email);
     }
 
-    // 3. Still not found — restore the dynamic user from session data so the update works
     if (index === -1 && sessionUser) {
       users.push({ ...sessionUser, password: '' });
       index = users.length - 1;
@@ -518,15 +614,16 @@ export const mockApi = {
   },
 
   // ============ MAINTENANCE CALENDAR ============
-  getMaintenanceEvents: async (month: number, year: number) => {
-    await delay(300);
-    return mockMaintenanceEvents;
-  },
-
+getMaintenanceEvents: async (month: number, year: number) => {
+  await delay(300);
+  return mockMaintenanceEvents.filter((e) => {
+    const d = new Date(e.date);
+    return d.getMonth() + 1 === month && d.getFullYear() === year;
+  });
+},
   // ============ EXPORT ============
-  exportPDF: async (type: string, id: string | number) => {
+  exportPDF: async (_type: string, _id: string | number) => {
     await delay(1000);
-    // In real app, this would generate and return a PDF
     return {
       success: true,
       message: 'PDF exported successfully',
@@ -620,6 +717,22 @@ export const mockApi = {
   getAccessRequests: async () => {
     await delay(350);
     return [...mockAccessRequests];
+  },
+
+  approveAccessRequest: async (_id: string | number) => {
+    await delay(300);
+    return { success: true };
+  },
+
+  // ============ PASSWORD RESET ============
+  forgotPassword: async (_email: string) => {
+    await delay(300);
+    return { success: true };
+  },
+
+  resetPassword: async (_email: string, _otp: string, _newPassword: string) => {
+    await delay(300);
+    return { success: true };
   },
 };
 

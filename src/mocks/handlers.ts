@@ -63,11 +63,13 @@ export const handlers = [
   }),
 
   http.post(`${BASE}/auth/activate`, async ({ request }) => {
-    const body = await request.json() as { token?: string; password?: string };
-    if (!body.token || !body.password) {
-      return badRequest('Token and password are required');
+    const body = await request.json() as { access_request_id?: number | string; token?: number | string; password?: string };
+    const rawId = body.access_request_id ?? body.token;
+    const accessRequestId = rawId !== undefined && rawId !== null ? Number(rawId) : NaN;
+    if (!Number.isFinite(accessRequestId) || !body.password) {
+      return badRequest('access_request_id and password are required');
     }
-    const data = await mockApi.activateAccount(body.token, body.password);
+    const data = await mockApi.activateAccount(accessRequestId, body.password);
     return HttpResponse.json(data);
   }),
 

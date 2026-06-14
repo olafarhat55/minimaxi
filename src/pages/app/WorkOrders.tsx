@@ -70,16 +70,19 @@ const WorkOrders = () => {
 
   useEffect(() => {
     const fetchWorkOrders = async () => {
-      setLoading(true);
-      try {
-        const data = await api.getWorkOrders(filters);
-        setWorkOrders(data);
-      } catch (error) {
-        console.error('Failed to fetch work orders:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  setLoading(true);
+  try {
+    const data = await api.getWorkOrders(filters);
+    // backend may return array directly or wrapped
+    const list = Array.isArray(data) ? data : (data as any)?.content ?? [];
+    setWorkOrders(list);
+  } catch (error) {
+    console.error('Failed to fetch work orders:', error);
+    setWorkOrders([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
     fetchWorkOrders();
   }, [filters]);
@@ -92,15 +95,17 @@ const WorkOrders = () => {
 
 
   const handleDelete = async () => {
-    try {
-      await api.deleteWorkOrder(workOrderToDelete);
-      setWorkOrders(workOrders.filter((wo) => wo.id !== workOrderToDelete));
-      setDeleteDialogOpen(false);
-      setWorkOrderToDelete(null);
-    } catch (error) {
-      console.error('Failed to delete work order:', error);
-    }
-  };
+  if (!workOrderToDelete) return;
+  try {
+    await api.deleteWorkOrder(workOrderToDelete);
+    setWorkOrders((prev) => prev.filter((wo) => wo.id !== workOrderToDelete));
+  } catch (error) {
+    console.error('Failed to delete work order:', error);
+  } finally {
+    setDeleteDialogOpen(false);
+    setWorkOrderToDelete(null);
+  }
+};
 
   const stats = {
     open: workOrders.filter((wo) => wo.status === 'open').length,

@@ -5,3 +5,4 @@ export { default as ActivatePage } from './ActivatePage';
 export { default as LogoutPage } from './LogoutPage';
 export { default as ForgotPasswordPage } from './ForgotPasswordPage';
 export { default as ResetPasswordPage } from './ResetPasswordPage';
+

@@ -32,12 +32,16 @@ import { machineTypes } from '../../data/mockData';
 import { api } from '../../services/api';
 import { useThemeMode } from '../../context/ThemeContext';
 
+// ✅ criticality added
 const initialMachineState = {
   name: '',
   type: '',
   location: '',
   serial_number: '',
+  criticality: 'MEDIUM',
 };
+
+const criticalityOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 interface AddMachinesProps {
   machines: any[];
@@ -51,7 +55,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
   const { isDark } = useThemeMode();
   const [machineList, setMachineList] = useState(machines || []);
   const [viewState, setViewState] = useState(machineList.length > 0 ? 'table' : 'initial');
-  const [editIndex, setEditIndex] = useState(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState(initialMachineState);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -63,9 +67,13 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
     severity: 'success',
   });
 
+  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   const handleShowForm = (index?: number | null) => {
     if (index != null) {
-      setFormData(machineList[index]);
+      setFormData({ ...initialMachineState, ...machineList[index] });
       setEditIndex(index);
     } else {
       setFormData(initialMachineState);
@@ -86,27 +94,42 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
   };
 
   const handleSaveMachine = async (addAnother?: boolean) => {
+    if (!formData.name.trim() || !formData.type) return;
     setLoading(true);
     try {
+      let updatedList = [...machineList];
+
       if (editIndex !== null) {
-        const updated = [...machineList];
-        updated[editIndex] = formData;
-        setMachineList(updated);
+        // Edit: update locally
+        updatedList[editIndex] = formData;
+        setMachineList(updatedList);
+        onUpdate(updatedList); // ✅ persist immediately
+        showSnackbar('Machine updated successfully.', 'success');
       } else {
+        // ✅ Create via API
         const newMachine = await api.createMachine(formData);
-        setMachineList([...machineList, newMachine]);
+        updatedList = [...updatedList, newMachine];
+        setMachineList(updatedList);
+        onUpdate(updatedList); // ✅ persist immediately so Back doesn't wipe it
+        showSnackbar('Machine added successfully.', 'success');
       }
 
       if (addAnother) {
         setFormData(initialMachineState);
         setEditIndex(null);
+        // stay on form
       } else {
         setFormData(initialMachineState);
         setEditIndex(null);
         setViewState('table');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save machine:', error);
+      const msg =
+        error?.message ??
+        error?.error ??
+        'Failed to save machine. Please try again.';
+      showSnackbar(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -115,9 +138,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
   const handleDeleteMachine = (index: number) => {
     const updated = machineList.filter((_, i) => i !== index);
     setMachineList(updated);
-    if (updated.length === 0) {
-      setViewState('initial');
-    }
+    if (updated.length === 0) setViewState('initial');
   };
 
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,12 +146,12 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       const lines = text.split(/\r?\n/).filter((line) => line.trim());
 
       if (lines.length === 0) {
-        setSnackbar({ open: true, message: 'CSV file is empty.', severity: 'error' });
+        showSnackbar('CSV file is empty.', 'error');
         return;
       }
 
@@ -140,7 +161,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
       const dataLines = lines.slice(startIndex);
 
       if (dataLines.length === 0) {
-        setSnackbar({ open: true, message: 'CSV file has no data rows.', severity: 'error' });
+        showSnackbar('CSV file has no data rows.', 'error');
         return;
       }
 
@@ -158,6 +179,11 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
 
         const name = cols[0];
         const type = cols[1];
+        const location = cols[2] || '';
+        const serial_number = cols[3] || '';
+        // ✅ col[4] = criticality, default MEDIUM if missing/invalid
+        const rawCrit = (cols[4] || 'MEDIUM').toUpperCase();
+        const criticality = criticalityOptions.includes(rawCrit) ? rawCrit : 'MEDIUM';
 
         if (!name) {
           errors.push(`Row ${rowNum}: machine name is required.`);
@@ -172,36 +198,48 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
           return;
         }
 
-        validMachines.push({
-          name,
-          type,
-          location: cols[2] || '',
-          model: cols[3] || '',
-          serial_number: cols[4] || '',
-        });
+        validMachines.push({ name, type, location, serial_number, criticality });
       });
 
       if (errors.length > 0) {
-        setSnackbar({
-          open: true,
-          message: `${errors.length} error(s): ${errors.slice(0, 3).join(' ')}${errors.length > 3 ? ` ...and ${errors.length - 3} more.` : ''}`,
-          severity: 'error',
-        });
+        showSnackbar(
+          `${errors.length} error(s): ${errors.slice(0, 3).join(' ')}${errors.length > 3 ? ` ...and ${errors.length - 3} more.` : ''}`,
+          'error'
+        );
         return;
       }
 
-      const updated = [...machineList, ...validMachines];
+      // ✅ send each machine to API
+      setLoading(true);
+      const created: any[] = [];
+      const failedRows: string[] = [];
+
+      for (const machine of validMachines) {
+        try {
+          const result = await api.createMachine(machine);
+          created.push(result);
+        } catch {
+          failedRows.push(machine.name);
+        }
+      }
+
+      const updated = [...machineList, ...created];
       setMachineList(updated);
+      onUpdate(updated);
       setViewState('table');
-      setSnackbar({
-        open: true,
-        message: `Successfully imported ${validMachines.length} machine${validMachines.length !== 1 ? 's' : ''}.`,
-        severity: 'success',
-      });
+      setLoading(false);
+
+      if (failedRows.length > 0) {
+        showSnackbar(
+          `Imported ${created.length} machine(s). Failed: ${failedRows.join(', ')}`,
+          created.length > 0 ? 'success' : 'error'
+        );
+      } else {
+        showSnackbar(`Successfully imported ${created.length} machine${created.length !== 1 ? 's' : ''}.`, 'success');
+      }
     };
 
     reader.readAsText(file);
-    // Reset input so the same file can be re-selected
     e.target.value = '';
   };
 
@@ -210,8 +248,8 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
     onNext();
   };
 
-  // Hidden file input for CSV import
-  const csvInput = (
+  // Hidden file input + Snackbar (shared across all view states)
+  const sharedElements = (
     <>
       <input
         type="file"
@@ -237,11 +275,11 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
     </>
   );
 
-  // Initial State - Card with Add button
+  // ── Initial State ────────────────────────────────────────────────────────────
   if (viewState === 'initial') {
     return (
       <Paper sx={{ p: 4, borderRadius: 2 }}>
-        {csvInput}
+        {sharedElements}
         <Typography variant="h5" fontWeight={600} gutterBottom>
           Add Machines
         </Typography>
@@ -251,13 +289,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
 
         <Card
           variant="outlined"
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            bgcolor: '#fafafa',
-            borderStyle: 'dashed',
-            mb: 4,
-          }}
+          sx={{ p: 4, textAlign: 'center', bgcolor: '#fafafa', borderStyle: 'dashed', mb: 4 }}
         >
           <CardContent>
             <Box
@@ -282,11 +314,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
               Enter your machine details one by one
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => handleShowForm()}
-              >
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleShowForm()}>
                 Add
               </Button>
               <Button
@@ -301,22 +329,18 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
         </Card>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button onClick={onBack} variant="outlined">
-            Back
-          </Button>
-          <Button variant="contained" onClick={handleNext}>
-            Next
-          </Button>
+          <Button onClick={onBack} variant="outlined">Back</Button>
+          <Button variant="contained" onClick={handleNext}>Next</Button>
         </Box>
       </Paper>
     );
   }
 
-  // Form State
+  // ── Form State ───────────────────────────────────────────────────────────────
   if (viewState === 'form') {
     return (
       <Paper sx={{ p: 4, borderRadius: 2 }}>
-        {csvInput}
+        {sharedElements}
         <Typography variant="h5" fontWeight={600} gutterBottom>
           Machines Information
         </Typography>
@@ -324,100 +348,63 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
           {editIndex !== null ? 'Edit machine details' : 'Enter machine details'}
         </Typography>
 
-        <Grid container spacing={3}>
-          {/* Row 1 - Machine Name & Machine Type */}
-          {/* @ts-expect-error MUI v7 Grid item prop */}
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Machine Name *"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-            />
-          </Grid>
-          {/* @ts-expect-error MUI v7 Grid item prop */}
-          <Grid item xs={12} md={6}>
+        {/* Row 1: Machine Name + Machine Type */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+            <TextField fullWidth label="Machine Name *" name="name" value={formData.name} onChange={handleChange} />
+          </Box>
+          <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
             <Autocomplete
               options={machineTypes}
               value={formData.type || null}
-              onChange={(_, newValue) =>
-                setFormData((prev) => ({ ...prev, type: newValue || '' }))
-              }
-              renderInput={(params) => (
-                <TextField {...params} fullWidth label="Machine Type *" />
-              )}
+              onChange={(_, newValue) => setFormData((prev) => ({ ...prev, type: newValue || '' }))}
+              renderInput={(params) => <TextField {...params} fullWidth label="Machine Type *" />}
             />
-          </Grid>
+          </Box>
+        </Box>
 
-          {/* Row 2 - Location & Serial Number */}
-          {/* @ts-expect-error MUI v7 Grid item prop */}
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Location / Production Line"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="e.g., Line A, Building 1"
-            />
-          </Grid>
-          {/* @ts-expect-error MUI v7 Grid item prop */}
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Serial Number"
-              name="serial_number"
-              value={formData.serial_number}
-              onChange={handleChange}
-            />
-          </Grid>
+        {/* Row 2: Location + Serial Number */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+            <TextField fullWidth label="Location / Production Line" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Line A, Building 1" />
+          </Box>
+          <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+            <TextField fullWidth label="Serial Number" name="serial_number" value={formData.serial_number} onChange={handleChange} />
+          </Box>
+        </Box>
 
-          {/* Row 3 - Action Buttons في المنتصف */}
-          {/* @ts-expect-error MUI v7 Grid item prop */}
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => handleSaveMachine(true)}
-                disabled={!formData.name || !formData.type || loading}
-              >
-                Save & Add Another
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => handleSaveMachine(false)}
-                disabled={!formData.name || !formData.type || loading}
-              >
-                Save Machine
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+        {/* Row 3: Criticality */}
+        <Box sx={{ mb: 4, width: { xs: '100%', sm: 'calc(50% - 8px)' } }}>
+          <TextField select fullWidth label="Criticality *" name="criticality" value={formData.criticality} onChange={handleChange}>
+            {criticalityOptions.map((opt) => (
+              <MenuItem key={opt} value={opt}>{opt.charAt(0) + opt.slice(1).toLowerCase()}</MenuItem>
+            ))}
+          </TextField>
+        </Box>
 
-        {/* Navigation Buttons */}
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <Button variant="outlined" onClick={handleCancel}>Cancel</Button>
+          <Button variant="outlined" onClick={() => handleSaveMachine(true)} disabled={!formData.name || !formData.type || loading}>
+            Save & Add Another
+          </Button>
+          <Button variant="contained" onClick={() => handleSaveMachine(false)} disabled={!formData.name || !formData.type || loading}>
+            {loading ? 'Saving...' : 'Save Machine'}
+          </Button>
+        </Box>
+
         <Box sx={{ mt: 5, display: 'flex', justifyContent: 'space-between', pt: 3, borderTop: '1px solid #e0e0e0' }}>
-          <Button variant="outlined" onClick={onBack}>
-            Back
-          </Button>
-          <Button variant="contained" onClick={handleNext}>
-            Next
-          </Button>
+          <Button variant="outlined" onClick={onBack}>Back</Button>
+          <Button variant="contained" onClick={handleNext}>Next</Button>
         </Box>
       </Paper>
     );
   }
 
-  // Table State
+  // ── Table State ──────────────────────────────────────────────────────────────
   return (
     <Paper sx={{ p: 4, borderRadius: 2 }}>
-      {csvInput}
+      {sharedElements}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight={600} gutterBottom>
@@ -435,11 +422,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
           >
             Import CSV
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleShowForm()}
-          >
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleShowForm()}>
             Add Machine
           </Button>
         </Box>
@@ -460,9 +443,10 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
               }}
             >
               <TableCell>Machine Name</TableCell>
-              <TableCell>Location</TableCell>
               <TableCell>Type</TableCell>
+              <TableCell>Location</TableCell>
               <TableCell>Serial No.</TableCell>
+              <TableCell>Criticality</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -474,9 +458,10 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
                 return (
                   <TableRow key={actualIndex}>
                     <TableCell>{machine.name}</TableCell>
-                    <TableCell>{machine.location || '-'}</TableCell>
                     <TableCell>{machine.type}</TableCell>
+                    <TableCell>{machine.location || '-'}</TableCell>
                     <TableCell>{machine.serial_number || '-'}</TableCell>
+                    <TableCell>{machine.criticality || 'MEDIUM'}</TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => handleShowForm(actualIndex)}>
                         <EditIcon fontSize="small" />
@@ -495,7 +480,7 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
             component="div"
             count={machineList.length}
             page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
+            onPageChange={(_, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
             rowsPerPageOptions={[10]}
           />
@@ -503,12 +488,8 @@ const AddMachines = ({ machines, onUpdate, onNext, onBack }: AddMachinesProps) =
       </TableContainer>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-        <Button onClick={onBack} variant="outlined">
-          Back
-        </Button>
-        <Button variant="contained" onClick={handleNext}>
-          Next
-        </Button>
+        <Button onClick={onBack} variant="outlined">Back</Button>
+        <Button variant="contained" onClick={handleNext}>Next</Button>
       </Box>
     </Paper>
   );
