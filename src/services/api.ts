@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { mockApi } from './mockApi';
+import type { WorkOrderFilters } from '../types';
 
 // Toggle between mock and real API
 const USE_MOCK = false;
@@ -7,7 +8,7 @@ const USE_MOCK = false;
 // Axios instance for real API calls
 export const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'https://minimaxi-backend-production-3500.up.railway.app/api',
-  timeout: 10000,
+  timeout: 150000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -164,7 +165,6 @@ const normalizeSensorThreshold = (d: any) => {
     // keep originals for PUT
     assetTypeId:       s.assetTypeId   ?? s.asset_type_id,
     sensorTypeId:      s.sensorTypeId  ?? s.sensor_type_id,
-    // ← أضيفي السطرين دول
     asset_type_id:     s.asset_type_id ?? s.assetTypeId,
     asset_type_name:   s.asset_type_name ?? '',
   });
@@ -227,7 +227,7 @@ const realApi = {
 
   // Machines
   getMachines: (filters?: any) =>
-    axiosInstance.get('/machines', { params: filters }),
+  axiosInstance.get('/machines', { params: { ...filters, companyId: getCompanyId() } }),
   getMachineById: (id: string | number) =>
     axiosInstance.get(`/machines/${id}`),
   createMachine: (data: any) =>
@@ -245,7 +245,9 @@ const realApi = {
   updateMachine: (id: string | number, data: any) =>
     axiosInstance.put(`/machines/${id}`, data),
   deleteMachine: (id: string | number) =>
-    axiosInstance.delete(`/machines/${id}`),
+  axiosInstance.delete(`/machines/${id}`, {
+    headers: { 'Content-Type': 'application/json' },
+  }),
   getMachineSensorHistory: (id: string | number, hours?: number) =>
     axiosInstance.get(`/machines/${id}/sensor-history`, { params: { hours } }),
   getMachineIssues: (id: string | number) =>
@@ -256,10 +258,11 @@ const realApi = {
     axiosInstance.get(`/machines/${id}/notes`),
 
   // Work Orders
-  getWorkOrders: (filters?: any) => {
+  getWorkOrders: (filters?: WorkOrderFilters) => {
     const params: any = {};
-    if (filters?.status)   params.status   = frontStatusToBackend(filters.status);
-    if (filters?.priority) params.priority = frontPriorityToBackend(filters.priority);
+    if (filters?.status)      params.status     = frontStatusToBackend(filters.status);
+    if (filters?.priority)    params.priority   = frontPriorityToBackend(filters.priority);
+    if (filters?.assigned_to) params.assignedTo = filters.assigned_to;
     return axiosInstance.get('/work-orders', { params })
       .then((data: any) => {
         const list = Array.isArray(data) ? data : (data as any)?.content ?? [];
@@ -271,20 +274,21 @@ const realApi = {
     axiosInstance.get(`/work-orders/${id}`).then((data: any) => normalizeWorkOrder(data)),
 
   createWorkOrder: (data: any) => {
-    const userId = getUserId();
-    return axiosInstance.post('/work-orders', {
-      title:               data.title,
-      description:         data.description,
-      machine_id:          data.machine_id,
-      organization_id:     getCompanyId(),
-      created_by_user_id:  userId,
-      assigned_to_user_id: data.assigned_to?.id ?? userId,
-      priority:            frontPriorityToBackend(data.priority ?? 'medium'),
-      status:              'OPEN',
-      due_date:            data.due_date ? data.due_date.split('T')[0] : null,
-      ai_suggested:        false,
-    });
-  },
+  const userId = getUserId();
+  return axiosInstance.post('/work-orders', {
+    title:               data.title,
+    description:         data.description,
+    machine_id:          data.machine_id,
+    organization_id:     getCompanyId(),
+    created_by_user_id:  userId,
+    assigned_to_user_id: data.assigned_to?.id ?? userId,
+    priority:            frontPriorityToBackend(data.priority ?? 'medium'),
+    status:              'OPEN',
+    due_date:            data.due_date ? data.due_date.split('T')[0] : null,
+    ai_suggested:        false,
+    estimated_hours:     data.estimated_hours ? Number(data.estimated_hours) : undefined,
+  });
+},
 
   updateWorkOrder: (id: string | number, data: any) => {
     const payload: Record<string, any> = {};
@@ -344,7 +348,7 @@ const realApi = {
   markNotificationRead: (id: string | number) =>
     axiosInstance.put(`/notifications/${id}/read`),
   markAllNotificationsRead: () =>
-    axiosInstance.put('/notifications/readall', null, { params: { userId: getUserId() } }),
+  axiosInstance.put('/notifications/read-all', null, { params: { userId: getUserId() } }),
 
   // Reports
   getReportsData: () =>

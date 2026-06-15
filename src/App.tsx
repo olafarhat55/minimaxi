@@ -33,11 +33,13 @@ import {
   MyWorkOrders,
   MaintenancePlanning,
   Alerts,
+  Notifications,
   Reports,
   UserManagement,
   Settings,
   Profile,
   AddAsset,
+  MachineHistory,
 } from './pages/app';
 
 function App() {
@@ -109,39 +111,46 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                 <Route
-  path="/work-orders"
-  element={
-    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
-      <WorkOrders />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/work-orders/new"
-  element={
-    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
-      <CreateWorkOrder />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/work-orders/:id/edit"
-  element={
-    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
-      <CreateWorkOrder />
-    </ProtectedRoute>
-  }
-/>
-{/* ✅ الـ route الناقص */}
-<Route
-  path="/work-orders/:id"
-  element={
-    <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
-      <WorkOrderDetails />
-    </ProtectedRoute>
-  }
-/>
+                  <Route
+                    path="/machines/:id/history"
+                    element={
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
+                        <MachineHistory />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/work-orders"
+                    element={
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+                        <WorkOrders />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/work-orders/new"
+                    element={
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+                        <CreateWorkOrder />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/work-orders/:id/edit"
+                    element={
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer']}>
+                        <CreateWorkOrder />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/work-orders/:id"
+                    element={
+                      <ProtectedRoute roles={['admin', 'system_admin', 'company_admin', 'engineer', 'technician']}>
+                        <WorkOrderDetails />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/maintenance"
                     element={
@@ -166,6 +175,13 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* ── Notifications page (all roles) ── */}
+                  <Route
+                    path="/notifications"
+                    element={<Notifications />}
+                  />
+
                   <Route
                     path="/reports"
                     element={

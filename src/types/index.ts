@@ -130,6 +130,12 @@ export interface WorkOrder {
   notes: WorkOrderNote[];
 }
 
+export interface WorkOrderFilters {
+  status?: string;
+  priority?: string;
+  assigned_to?: number;
+}
+
 // ============ ALERT ============
 
 export interface Alert {

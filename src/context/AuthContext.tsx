@@ -61,6 +61,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await api.login(email, password) as any;
       const { user: userData, token } = response;
+      if (userData?.role) {
+  userData.role = userData.role.toLowerCase();
+}
 
       if (!userData?.role || !VALID_ROLES.includes(userData.role)) {
         throw new Error('Server returned invalid user role');
@@ -104,7 +107,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // بتسيت الـ user من الأول من غير ما تحتاجي user موجود قبلها
   // بتستخدمها بعد الـ activation مباشرة
-  const setUserDirectly = useCallback((userData: User) => {
+ const setUserDirectly = useCallback((userData: User) => {
+    if (userData?.role) {
+    userData.role = userData.role.toLowerCase() as User['role'];
+    }
     console.log('[Auth] setUserDirectly:', userData.email, 'role:', userData.role);
     sessionStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);

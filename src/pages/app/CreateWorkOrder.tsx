@@ -6,9 +6,9 @@ import {
 import { ArrowBack as BackIcon, Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { isAdmin } from '../../utils/permissions';
+import { isEngineer, isAdmin } from '../../utils/permissions';
 import type { Machine, User } from '../../types';
-import { api, frontStatusToBackend } from '../../services/api';
+import { api } from '../../services/api';
 
 const priorities = [
   { value: 'critical', label: 'Critical', color: '#f44336' },
@@ -17,40 +17,30 @@ const priorities = [
   { value: 'low',      label: 'Low',      color: '#4caf50' },
 ];
 
-const statuses = [
-  { value: 'open',        label: 'Open' },
-  { value: 'assigned',    label: 'Assigned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed',   label: 'Completed' },
-  { value: 'cancelled',   label: 'Cancelled' },
-  { value: 'closed',      label: 'Closed' },
-];
-
 const fieldSx = { width: '100%' };
 
 const CreateWorkOrder = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const { id }    = useParams<{ id: string }>();
+  const { user }  = useAuth();
 
-  const isEditMode = Boolean(id);
+  const isEditMode         = Boolean(id);
   const preselectedMachine = location.state?.machine;
 
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]       = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess]     = useState('');
-  const [error, setError]         = useState('');
-  const [machines, setMachines]   = useState<Machine[]>([]);
+  const [success, setSuccess]       = useState('');
+  const [error, setError]           = useState('');
+  const [machines, setMachines]     = useState<Machine[]>([]);
   const [technicians, setTechnicians] = useState<User[]>([]);
-  const [partInput, setPartInput] = useState('');
+  
 
   const [formData, setFormData] = useState({
     machine_id:      preselectedMachine?.id || '',
     title:           '',
     description:     '',
     priority:        'medium',
-    status:          'open',
     assigned_to:     null as { id: number; name: string } | null,
     due_date:        '',
     estimated_hours: '',
@@ -67,22 +57,26 @@ const CreateWorkOrder = () => {
         const ml = Array.isArray(machinesRaw) ? machinesRaw : (machinesRaw as any)?.content ?? [];
         const ul = Array.isArray(usersRaw)    ? usersRaw    : (usersRaw as any)?.content    ?? [];
         setMachines(ml);
+        // Filter only technicians from the company users list
         setTechnicians(ul.filter((u: User) => u.role === 'technician'));
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+      }
 
       if (isEditMode && id) {
         try {
           const wo = await api.getWorkOrderById(id);
           setFormData({
             machine_id:      wo.machine_id != null ? String(wo.machine_id) : '',
-            title:           wo.title ?? '',
-            description:     wo.description ?? '',
-            priority:        wo.priority ?? 'medium',
-            status:          wo.status ?? 'open',
+            title:           wo.title           ?? '',
+            description:     wo.description     ?? '',
+            priority:        wo.priority        ?? 'medium',
             assigned_to:     wo.assigned_to ? { id: wo.assigned_to.id, name: wo.assigned_to.name } : null,
-            due_date:        wo.due_date ? (wo.due_date.length === 10 ? `${wo.due_date}T00:00` : wo.due_date.slice(0, 16)) : '',
+            due_date:        wo.due_date
+              ? (wo.due_date.length === 10 ? `${wo.due_date}T00:00` : wo.due_date.slice(0, 16))
+              : '',
             estimated_hours: wo.estimated_hours != null ? String(wo.estimated_hours) : '',
-            parts_needed:    wo.parts_needed ?? [],
+            parts_needed:    wo.parts_needed    ?? [],
           });
         } catch (err) {
           console.error(err);
@@ -103,10 +97,10 @@ const CreateWorkOrder = () => {
 
   const validateForm = () => {
     const e: Record<string, string> = {};
-    if (!formData.machine_id)          e.machine_id  = 'Please select an asset';
-    if (!formData.title.trim())        e.title       = 'Title is required';
-    if (!formData.description.trim())  e.description = 'Description is required';
-    if (!formData.due_date)            e.due_date    = 'Due date is required';
+    if (!formData.machine_id)         e.machine_id  = 'Please select an asset';
+    if (!formData.title.trim())       e.title       = 'Title is required';
+    if (!formData.description.trim()) e.description = 'Description is required';
+    if (!formData.due_date)           e.due_date    = 'Due date is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -114,14 +108,16 @@ const CreateWorkOrder = () => {
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!validateForm()) return;
-    setSubmitting(true); setError('');
+    setSubmitting(true);
+    setError('');
     try {
       if (isEditMode && id) {
         await api.updateWorkOrder(id, {
-          title: formData.title, description: formData.description,
-          priority: formData.priority.toUpperCase(),
-          status: frontStatusToBackend(formData.status),
-          dueDate: formData.due_date ? formData.due_date.split('T')[0] : undefined,
+          title:            formData.title,
+          description:      formData.description,
+          priority:         formData.priority.toUpperCase(),
+          // status intentionally omitted — Engineer uses Cancel button on details page
+          dueDate:          formData.due_date ? formData.due_date.split('T')[0] : undefined,
           assignedToUserId: formData.assigned_to?.id,
         });
         setSuccess('Work order updated successfully!');
@@ -132,12 +128,19 @@ const CreateWorkOrder = () => {
       setTimeout(() => navigate('/work-orders'), 1500);
     } catch (err: any) {
       setError(err.message || `Failed to ${isEditMode ? 'update' : 'create'} work order`);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // Show "Assign to Technician" for both Engineer and Admin roles
+  const canAssign = isEngineer(user) || isAdmin(user);
 
   const selectedMachine = machines.find(m => m.id === formData.machine_id);
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+  }
 
   return (
     <Box>
@@ -162,22 +165,35 @@ const CreateWorkOrder = () => {
                 <Typography variant="h6" fontWeight={600} gutterBottom>Work Order Details</Typography>
                 <Divider sx={{ mb: 3 }} />
 
-                {/* Row 1: Select Asset */}
+                {/* Select Asset — create only */}
                 {!isEditMode && (
                   <Box sx={{ mb: 3 }}>
                     <Autocomplete
                       options={machines}
                       getOptionLabel={o => `${o.asset_id} - ${o.name}`}
                       value={selectedMachine || null}
-                      onChange={(_e, v) => { setFormData(p => ({ ...p, machine_id: v?.id || '' })); setErrors(p => ({ ...p, machine_id: '' })); }}
+                      onChange={(_e, v) => {
+                        setFormData(p => ({ ...p, machine_id: v?.id || '' }));
+                        setErrors(p => ({ ...p, machine_id: '' }));
+                      }}
                       renderInput={params => (
-                        <TextField {...params} label="Select Asset *" error={!!errors.machine_id} helperText={errors.machine_id} sx={fieldSx} />
+                        <TextField
+                          {...params}
+                          label="Select Asset *"
+                          error={!!errors.machine_id}
+                          helperText={errors.machine_id}
+                          sx={fieldSx}
+                        />
                       )}
                       renderOption={(props, option) => (
                         <li {...props}>
                           <Box>
-                            <Typography variant="body2" fontWeight={500}>{option.asset_id} — {option.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">{option.type} | {option.location}</Typography>
+                            <Typography variant="body2" fontWeight={500}>
+                              {option.asset_id} — {option.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {option.type} | {option.location}
+                            </Typography>
                           </Box>
                         </li>
                       )}
@@ -185,7 +201,7 @@ const CreateWorkOrder = () => {
                   </Box>
                 )}
 
-                {/* Row 2: Title */}
+                {/* Title */}
                 <Box sx={{ mb: 3 }}>
                   <TextField
                     sx={fieldSx} label="Title *" name="title"
@@ -195,7 +211,7 @@ const CreateWorkOrder = () => {
                   />
                 </Box>
 
-                {/* Row 3: Description */}
+                {/* Description */}
                 <Box sx={{ mb: 3 }}>
                   <TextField
                     sx={fieldSx} multiline rows={4} label="Description *" name="description"
@@ -205,7 +221,7 @@ const CreateWorkOrder = () => {
                   />
                 </Box>
 
-                {/* Row 4: Priority + Status(edit) + Due Date + Est Hours — 2 per row */}
+                {/* Priority + Estimated Hours */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                   <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
                     <TextField
@@ -222,25 +238,16 @@ const CreateWorkOrder = () => {
                       ))}
                     </TextField>
                   </Box>
-
-                  {isEditMode ? (
-                    <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
-                      <TextField select sx={fieldSx} label="Status" name="status" value={formData.status} onChange={handleChange}>
-                        {statuses.map(s => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
-                      </TextField>
-                    </Box>
-                  ) : (
-                    <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
-                      <TextField
-                        sx={fieldSx} type="number" label="Estimated Hours" name="estimated_hours"
-                        value={formData.estimated_hours} onChange={handleChange}
-                        inputProps={{ min: 0, step: 0.5 }}
-                      />
-                    </Box>
-                  )}
+                  <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
+                    <TextField
+                      sx={fieldSx} type="number" label="Estimated Hours" name="estimated_hours"
+                      value={formData.estimated_hours} onChange={handleChange}
+                      inputProps={{ min: 0, step: 0.5 }}
+                    />
+                  </Box>
                 </Box>
 
-                {/* Row 5: Due Date + Assign To */}
+                {/* Due Date + Assign To */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                   <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
                     <TextField
@@ -251,48 +258,43 @@ const CreateWorkOrder = () => {
                     />
                   </Box>
 
-                  {isAdmin(user) && (
+                  {/* Assign To — visible for Engineer and Admin */}
+                  {canAssign && (
                     <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 180 }}>
                       <Autocomplete
                         options={technicians}
                         getOptionLabel={o => o.name}
-                        value={formData.assigned_to ? technicians.find(t => t.id === formData.assigned_to!.id) ?? null : null}
-                        onChange={(_e, v) => setFormData(p => ({ ...p, assigned_to: v ? { id: v.id, name: v.name } : null }))}
+                        value={
+                          formData.assigned_to
+                            ? technicians.find(t => t.id === formData.assigned_to!.id) ?? null
+                            : null
+                        }
+                        onChange={(_e, v) =>
+                          setFormData(p => ({ ...p, assigned_to: v ? { id: v.id, name: v.name } : null }))
+                        }
+                        noOptionsText="No technicians found"
                         renderInput={params => (
-                          <TextField {...params} sx={fieldSx} label="Assign to Technician" placeholder="Select technician (optional)" />
+                          <TextField
+                            {...params}
+                            sx={fieldSx}
+                            label="Assign to Technician"
+                            placeholder="Select technician (optional)"
+                          />
+                        )}
+                        renderOption={(props, option) => (
+                          <li {...props}>
+                            <Box>
+                              <Typography variant="body2" fontWeight={500}>{option.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">{option.email}</Typography>
+                            </Box>
+                          </li>
                         )}
                       />
                     </Box>
                   )}
                 </Box>
 
-                {/* Row 6: Parts Needed */}
-                {!isEditMode && (
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Parts Needed</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
-                      <TextField
-                        size="small" placeholder="Add part name" value={partInput}
-                        onChange={e => setPartInput(e.target.value)}
-                        onKeyPress={e => { if (e.key === 'Enter') { e.preventDefault(); if (partInput.trim() && !formData.parts_needed.includes(partInput.trim())) { setFormData(p => ({ ...p, parts_needed: [...p.parts_needed, partInput.trim()] })); setPartInput(''); } } }}
-                        sx={{ flexGrow: 1 }}
-                      />
-                      <Button variant="outlined" startIcon={<AddIcon />}
-                        onClick={() => { if (partInput.trim() && !formData.parts_needed.includes(partInput.trim())) { setFormData(p => ({ ...p, parts_needed: [...p.parts_needed, partInput.trim()] })); setPartInput(''); } }}>
-                        Add
-                      </Button>
-                    </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 32 }}>
-                      {formData.parts_needed.length === 0
-                        ? <Typography variant="body2" color="text.secondary">No parts added yet</Typography>
-                        : formData.parts_needed.map((part, i) => (
-                            <Chip key={i} label={part} size="small" deleteIcon={<CloseIcon />}
-                              onDelete={() => setFormData(p => ({ ...p, parts_needed: p.parts_needed.filter(x => x !== part) }))} />
-                          ))
-                      }
-                    </Box>
-                  </Box>
-                )}
+                
 
               </CardContent>
             </Card>
@@ -301,7 +303,7 @@ const CreateWorkOrder = () => {
           {/* ── Right: Sidebar ── */}
           <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
 
-            {/* Selected Asset Card */}
+            {/* Selected Asset Card — create only */}
             {!isEditMode && (
               <Card sx={{ borderRadius: 2, mb: 3 }}>
                 <CardContent>
@@ -309,7 +311,12 @@ const CreateWorkOrder = () => {
                   <Divider sx={{ mb: 2 }} />
                   {selectedMachine ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      {[['Asset ID', selectedMachine.asset_id], ['Name', selectedMachine.name], ['Type', selectedMachine.type], ['Location', selectedMachine.location]].map(([label, val]) => (
+                      {([
+                        ['Asset ID', selectedMachine.asset_id],
+                        ['Name',     selectedMachine.name],
+                        ['Type',     selectedMachine.type],
+                        ['Location', selectedMachine.location],
+                      ] as [string, string][]).map(([label, val]) => (
                         <Box key={label}>
                           <Typography variant="caption" color="text.secondary">{label}</Typography>
                           <Typography variant="body2" fontWeight={500}>{val}</Typography>
@@ -318,18 +325,31 @@ const CreateWorkOrder = () => {
                       <Box>
                         <Typography variant="caption" color="text.secondary">Status</Typography>
                         <Box sx={{ mt: 0.5 }}>
-                          <Chip label={selectedMachine.status} size="small" sx={{
-                            textTransform: 'capitalize',
-                            bgcolor: selectedMachine.status === 'critical' ? '#ffebee' : selectedMachine.status === 'warning' ? '#fff3e0' : '#e8f5e9',
-                            color:   selectedMachine.status === 'critical' ? '#f44336' : selectedMachine.status === 'warning' ? '#ff9800' : '#4caf50',
-                          }} />
+                          <Chip
+                            label={selectedMachine.status}
+                            size="small"
+                            sx={{
+                              textTransform: 'capitalize',
+                              bgcolor:
+                                selectedMachine.status === 'critical' ? '#ffebee' :
+                                selectedMachine.status === 'warning'  ? '#fff3e0' : '#e8f5e9',
+                              color:
+                                selectedMachine.status === 'critical' ? '#f44336' :
+                                selectedMachine.status === 'warning'  ? '#ff9800' : '#4caf50',
+                            }}
+                          />
                         </Box>
                       </Box>
                       {selectedMachine.prediction && (
                         <Box>
                           <Typography variant="caption" color="text.secondary">Failure Probability</Typography>
-                          <Typography variant="body2" fontWeight={500}
-                            color={selectedMachine.prediction.failure_probability >= 70 ? 'error' : selectedMachine.prediction.failure_probability >= 40 ? 'warning.main' : 'success.main'}>
+                          <Typography
+                            variant="body2" fontWeight={500}
+                            color={
+                              selectedMachine.prediction.failure_probability >= 70 ? 'error' :
+                              selectedMachine.prediction.failure_probability >= 40 ? 'warning.main' : 'success.main'
+                            }
+                          >
                             {selectedMachine.prediction.failure_probability}%
                           </Typography>
                         </Box>
@@ -347,14 +367,17 @@ const CreateWorkOrder = () => {
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Button type="submit" variant="contained" fullWidth size="large" disabled={submitting}>
-                {submitting ? <CircularProgress size={22} /> : isEditMode ? 'Save Changes' : 'Create Work Order'}
+                {submitting
+                  ? <CircularProgress size={22} />
+                  : isEditMode ? 'Save Changes' : 'Create Work Order'
+                }
               </Button>
               <Button variant="outlined" fullWidth onClick={() => navigate(-1)} disabled={submitting}>
                 Cancel
               </Button>
             </Box>
-          </Box>
 
+          </Box>
         </Box>
       </form>
     </Box>

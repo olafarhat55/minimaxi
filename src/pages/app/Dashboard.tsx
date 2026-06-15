@@ -37,10 +37,7 @@ const Dashboard = () => {
   const [sensorTrends, setSensorTrends] = useState<SensorTrendItem[]>([]);
   const [aiInsights, setAIInsights] = useState<AIInsight[]>([]);
   const [lastUpdated, setLastUpdated] = useState('0s ago');
-  // filters = what the user is currently editing in the UI
-  const [filters, setFilters] = useState({ timeRange: '7d', asset: 'all' });
-  // appliedFilters = last values sent to the API (changed only when Apply is clicked)
-  const [appliedFilters, setAppliedFilters] = useState({ timeRange: '7d', asset: 'all' });
+ 
   // retryCount increments to force a re-fetch on manual retry
   const [retryCount, setRetryCount] = useState(0);
 
@@ -73,7 +70,7 @@ const Dashboard = () => {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters, retryCount]);
+  }, [retryCount]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -108,10 +105,6 @@ const Dashboard = () => {
     };
   }, [fetchDashboardData]);
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-  };
 
   const handleTrendPeriodChange = async (newPeriod: string) => {
     setTrendPeriod(newPeriod);
@@ -185,45 +178,10 @@ const Dashboard = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" fontWeight={700}>
-          Dashboard
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-          <TextField
-            select
-            size="small"
-            name="timeRange"
-            value={filters.timeRange}
-            onChange={handleFilterChange}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="24h">Last 24 Hours</MenuItem>
-            <MenuItem value="7d">Last 7 Days</MenuItem>
-            <MenuItem value="30d">Last 30 Days</MenuItem>
-            <MenuItem value="90d">Last 90 Days</MenuItem>
-          </TextField>
-          <TextField
-            select
-            size="small"
-            name="asset"
-            value={filters.asset}
-            onChange={handleFilterChange}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="all">All Assets</MenuItem>
-            <MenuItem value="cnc">CNC Machines</MenuItem>
-            <MenuItem value="pumps">Pumps</MenuItem>
-            <MenuItem value="engines">Engines</MenuItem>
-          </TextField>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => setAppliedFilters(filters)}
-          >
-            Apply
-          </Button>
-        </Box>
-      </Box>
+  <Typography variant="h5" fontWeight={700}>
+    Dashboard
+  </Typography>
+</Box>
 
       <Grid container spacing={3}>
         {/* ── KPI Cards ── */}

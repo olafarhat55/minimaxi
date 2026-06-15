@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -18,6 +18,9 @@ import {
   Skeleton,
   InputAdornment,
   Alert,
+  Menu,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -25,15 +28,20 @@ import {
   Visibility as ViewIcon,
   Assignment as WorkOrderIcon,
   Refresh as RefreshIcon,
+  UploadFile as UploadFileIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  Delete as DeleteIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, axiosInstance } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useThemeMode } from '../../context/ThemeContext';
 import { StatusBadge, EmptyState } from '../../components/common';
-import { isAdmin, isTechnician } from '../../utils/permissions';
+import { ConfirmDialog } from '../../components/common';
 import { machineTypes } from '../../data/mockData';
 import type { Machine } from '../../types';
+import { canCreateWorkOrder, canManageAssets, canDeleteAsset } from '../../utils/permissions';
 
 const MachinesList = () => {
   const navigate = useNavigate();
@@ -50,9 +58,20 @@ const MachinesList = () => {
     location: '',
     status: '',
   });
-  // Debounced search — only sent to the API after the user stops typing for 500ms.
-  // Dropdown filters (type, location, status) are applied immediately.
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Add Asset menu
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [machineToDelete, setMachineToDelete] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [dependencyInfo, setDependencyInfo] = useState<{
+    workOrdersCount: number;
+    issuesCount: number;
+  } | null>(null);
 
   const rowsPerPage = 10;
 
@@ -70,9 +89,11 @@ const MachinesList = () => {
           ...filters,
           search: debouncedSearch,
         });
-        setMachines(data);
-      } catch {
-        setError('Failed to load assets. Please check your connection and try again.');
+        setMachines(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        if (machines.length === 0) {
+          setError('Failed to load assets. Please check your connection and try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -93,6 +114,106 @@ const MachinesList = () => {
 
   const handleCreateWorkOrder = (machine: Machine) => {
     navigate('/work-orders/new', { state: { machine } });
+  };
+
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length === 0) return;
+      const firstLine = lines[0].toLowerCase();
+      const startIndex = firstLine.includes('name') && firstLine.includes('type') ? 1 : 0;
+      const dataLines = lines.slice(startIndex);
+      for (const line of dataLines) {
+        const cols = line.split(',').map((c) => c.trim());
+        if (cols.length < 2) continue;
+        try {
+          await api.createMachine({
+            name: cols[0],
+            type: cols[1],
+            location: cols[2] || '',
+            serial_number: cols[3] || '',
+            criticality: (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes((cols[4] || '').toUpperCase())
+              ? cols[4].toUpperCase()
+              : 'MEDIUM'),
+          });
+        } catch { /* skip failed rows */ }
+      }
+      setRetryCount((c) => c + 1);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const resetDeleteState = () => {
+    setDeleteDialogOpen(false);
+    setMachineToDelete(null);
+    setDependencyInfo(null);
+  };
+
+  const handleDeleteMachine = async (force = false) => {
+    if (!machineToDelete) return;
+    const idToDelete = machineToDelete;
+    setDeleteLoading(true);
+    try {
+      if (force) {
+        await axiosInstance.delete(`/machines/${idToDelete}?force=true`);
+      } else {
+        await api.deleteMachine(idToDelete);
+      }
+      setMachines((prev) => prev.filter((m) => m.id !== idToDelete));
+      resetDeleteState();
+    } catch (error: any) {
+      const responseData = error?.response?.data ?? error;
+      const status = error?.response?.status ?? responseData?.status;
+
+   const isForeignKeyError =
+  (status === 400 || status === 409) &&
+  (responseData?.code === 'MACHINE_HAS_DEPENDENCIES' ||
+    (typeof responseData?.message === 'string' &&
+      responseData.message.includes('foreign key constraint')));
+
+if (!force && isForeignKeyError) {
+        // Show confirmation with dependency counts — dialog stays open
+        setDependencyInfo({
+          workOrdersCount: responseData.workOrdersCount ?? 0,
+          issuesCount: responseData.issuesCount ?? 0,
+        });
+      } else if (force) {
+  await new Promise(res => setTimeout(res, 2000));
+  try {
+    await api.getMachineById(idToDelete);
+    console.error('Machine still exists, delete may still be processing');
+  } catch (checkError: any) {
+    if (checkError?.response?.status === 404) {
+      setMachines((prev) => prev.filter((m) => m.id !== idToDelete));
+    }
+  }
+  resetDeleteState();
+} else {
+        console.error('Failed to delete machine:', error);
+        resetDeleteState();
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const buildDeleteMessage = (): string => {
+    if (!dependencyInfo) {
+      return 'Are you sure you want to delete this asset? This action cannot be undone.';
+    }
+    const parts: string[] = [];
+    if (dependencyInfo.workOrdersCount > 0) {
+      parts.push(`${dependencyInfo.workOrdersCount} work order${dependencyInfo.workOrdersCount > 1 ? 's' : ''}`);
+    }
+    if (dependencyInfo.issuesCount > 0) {
+      parts.push(`${dependencyInfo.issuesCount} issue${dependencyInfo.issuesCount > 1 ? 's' : ''}`);
+    }
+    return `This asset has ${parts.join(' and ')} linked to it. Deleting will permanently remove them all. This action cannot be undone.`;
   };
 
   const getStatusColor = (probability: number) => {
@@ -146,14 +267,41 @@ const MachinesList = () => {
         <Typography variant="h5" fontWeight={600}>
           Assets
         </Typography>
-        {isAdmin(user) && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/machines/add')}
-          >
-            Add Asset
-          </Button>
+
+        {canManageAssets(user) && (
+          <>
+            <input
+              type="file"
+              ref={csvInputRef}
+              accept=".csv"
+              style={{ display: 'none' }}
+              onChange={handleCsvImport}
+            />
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              endIcon={<ArrowDownIcon />}
+              onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+            >
+              Add Asset
+            </Button>
+            <Menu
+              anchorEl={addMenuAnchor}
+              open={Boolean(addMenuAnchor)}
+              onClose={() => setAddMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem onClick={() => { setAddMenuAnchor(null); navigate('/machines/add'); }}>
+                <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Add Manually</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => { setAddMenuAnchor(null); csvInputRef.current?.click(); }}>
+                <ListItemIcon><UploadFileIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Import CSV</ListItemText>
+              </MenuItem>
+            </Menu>
+          </>
         )}
       </Box>
 
@@ -228,8 +376,8 @@ const MachinesList = () => {
         <EmptyState
           title="No assets found"
           description="Add your first asset to start monitoring."
-          actionLabel={isAdmin(user) ? 'Add Asset' : undefined}
-          onAction={isAdmin(user) ? () => navigate('/machines/add') : undefined}
+          actionLabel={canManageAssets(user) ? 'Add Asset' : undefined}
+          onAction={canManageAssets(user) ? () => navigate('/machines/add') : undefined}
         />
       ) : (
         <>
@@ -311,17 +459,35 @@ const MachinesList = () => {
                       >
                         <ViewIcon fontSize="small" />
                       </IconButton>
-                      {!isTechnician(user) && (
-                        <>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleCreateWorkOrder(machine)}
-                            title="Create Work Order"
-                          >
-                            <WorkOrderIcon fontSize="small" />
-                          </IconButton>
-                          
-                        </>
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/machines/${machine.id}/history`)}
+                        title="View History"
+                      >
+                        <HistoryIcon fontSize="small" />
+                      </IconButton>
+                      {canCreateWorkOrder(user) && (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleCreateWorkOrder(machine)}
+                          title="Create Work Order"
+                        >
+                          <WorkOrderIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canDeleteAsset(user) && (
+                        <IconButton
+                          size="small"
+                          title="Delete Asset"
+                          sx={{ color: 'error.main' }}
+                          onClick={() => {
+                            setMachineToDelete(machine.id);
+                            setDependencyInfo(null);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       )}
                     </TableCell>
                   </TableRow>
@@ -342,6 +508,16 @@ const MachinesList = () => {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={dependencyInfo ? 'Delete Asset and All Related Data' : 'Delete Asset'}
+        message={buildDeleteMessage()}
+        confirmLabel={dependencyInfo ? 'Delete All' : 'Delete'}
+        confirmColor="error"
+        onConfirm={() => handleDeleteMachine(!!dependencyInfo)}
+        onCancel={resetDeleteState}
+      />
     </Box>
   );
 };

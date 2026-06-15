@@ -17,6 +17,7 @@ const PERMISSIONS: Record<Role, string[]> = {
     'delete_work_orders',
     'start_work_order',
     'complete_work_order',
+    'cancel_work_order',
     'view_maintenance',
     'edit_maintenance',
     'view_reports',
@@ -39,6 +40,7 @@ const PERMISSIONS: Record<Role, string[]> = {
     'delete_work_orders',
     'start_work_order',
     'complete_work_order',
+    'cancel_work_order',
     'view_maintenance',
     'edit_maintenance',
     'view_reports',
@@ -49,6 +51,7 @@ const PERMISSIONS: Record<Role, string[]> = {
     'view_settings',
   ],
 
+  // ✅ Company Admin: view only — no create/edit/delete/start/complete/cancel
   [ROLES.COMPANY_ADMIN]: [
     'view_dashboard',
     'view_machines',
@@ -62,6 +65,7 @@ const PERMISSIONS: Record<Role, string[]> = {
     'view_settings',
   ],
 
+  // ✅ Engineer: full WO control — create/edit/delete/cancel (NOT start/complete)
   [ROLES.ENGINEER]: [
     'view_dashboard',
     'view_machines',
@@ -72,8 +76,7 @@ const PERMISSIONS: Record<Role, string[]> = {
     'view_work_order_details',
     'edit_work_orders',
     'delete_work_orders',
-    'start_work_order',
-    'complete_work_order',
+    'cancel_work_order',
     'view_maintenance',
     'edit_maintenance',
     'view_reports',
@@ -82,12 +85,14 @@ const PERMISSIONS: Record<Role, string[]> = {
     'view_analytics',
   ],
 
+  // ✅ Technician: assigned WOs only — start/complete (NOT create/edit/delete/cancel)
   [ROLES.TECHNICIAN]: [
     'view_dashboard',
     'view_machines',
     'view_machine_details',
     'view_my_work_orders',
-    'update_work_order',
+    'view_work_order_details',
+    'start_work_order',
     'complete_work_order',
     'add_work_order_notes',
   ],
@@ -111,57 +116,60 @@ export const hasRole = (
   return roles.includes(user.role);
 };
 
-export const isCompanyAdmin = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return user?.role === ROLES.COMPANY_ADMIN;
-};
+// ─── Work Order permission helpers (match the matrix exactly) ────────────────
 
-export const canManageWorkOrders = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return user?.role === ROLES.ENGINEER;
-};
+/** Engineer only */
+export const canCreateWorkOrder = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'create_work_order') && user?.role === ROLES.ENGINEER;
 
-export const canCancelWorkOrder = (
-  _user: PermissionUser | null | undefined
-): boolean => {
-  return false;
-};
+/** Engineer only */
+export const canEditWorkOrder = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'edit_work_orders') && user?.role === ROLES.ENGINEER;
 
-export const canChangeWorkOrderStatus = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return (
-    user?.role === ROLES.ENGINEER ||
-    user?.role === ROLES.TECHNICIAN
-  );
-};
+/** Engineer only */
+export const canDeleteWorkOrder = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'delete_work_orders') && user?.role === ROLES.ENGINEER;
 
-export const isAdmin = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return (
-    user?.role === ROLES.ADMIN ||
-    user?.role === ROLES.SYSTEM_ADMIN
-  );
-};
+/** Technician only */
+export const canStartWork = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'start_work_order') && user?.role === ROLES.TECHNICIAN;
 
-export const isEngineer = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return user?.role === ROLES.ENGINEER;
-};
+/** Technician only */
+export const canCompleteWork = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'complete_work_order') && user?.role === ROLES.TECHNICIAN;
 
-export const isTechnician = (
-  user: PermissionUser | null | undefined
-): boolean => {
-  return user?.role === ROLES.TECHNICIAN;
-};
+/** Engineer only */
+export const canCancelWorkOrder = (user: PermissionUser | null | undefined): boolean =>
+  userCan(user, 'cancel_work_order') && user?.role === ROLES.ENGINEER;
 
-export const getDefaultRoute = (
-  user: PermissionUser | null | undefined
-): string => {
+/** Technician can see only their own WOs; Engineer & Company Admin see all */
+export const canViewAllWorkOrders = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ENGINEER ||
+  user?.role === ROLES.COMPANY_ADMIN ||
+  user?.role === ROLES.ADMIN ||
+  user?.role === ROLES.SYSTEM_ADMIN;
+
+// ─── Generic role helpers ────────────────────────────────────────────────────
+
+export const isCompanyAdmin = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.COMPANY_ADMIN;
+
+export const isAdmin = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ADMIN || user?.role === ROLES.SYSTEM_ADMIN;
+
+export const isEngineer = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ENGINEER;
+
+export const isTechnician = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.TECHNICIAN;
+
+export const canManageWorkOrders = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ENGINEER;
+
+export const canChangeWorkOrderStatus = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ENGINEER || user?.role === ROLES.TECHNICIAN;
+
+export const getDefaultRoute = (user: PermissionUser | null | undefined): string => {
   if (!user || !user.role) return '/login';
   switch (user.role) {
     case ROLES.TECHNICIAN:
@@ -175,10 +183,20 @@ export const getDefaultRoute = (
   }
 };
 
-// ✅ بنستخدم NAV_ITEMS من constants مباشرةً بدل ما نكرر التعريف
-export const getNavItems = (
-  user: PermissionUser | null | undefined
-): NavItem[] => {
+export const getNavItems = (user: PermissionUser | null | undefined): NavItem[] => {
   if (!user || !user.role) return [];
   return NAV_ITEMS[user.role] || [];
 };
+
+
+export const canManageAssets = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.ADMIN ||
+  user?.role === ROLES.SYSTEM_ADMIN ||
+  user?.role === ROLES.COMPANY_ADMIN;
+
+
+/** Company Admin, Admin, System Admin only */
+export const canDeleteAsset = (user: PermissionUser | null | undefined): boolean =>
+  user?.role === ROLES.COMPANY_ADMIN ||
+  user?.role === ROLES.ADMIN ||
+  user?.role === ROLES.SYSTEM_ADMIN;  

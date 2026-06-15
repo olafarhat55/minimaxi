@@ -17,6 +17,7 @@ import {
   ListItem,
   ListItemButton,
   Chip,
+  Button,
   useTheme,
 } from '@mui/material';
 import {
@@ -27,6 +28,7 @@ import {
   Logout as LogoutIcon,
   Settings as SettingsIcon,
   Circle as CircleIcon,
+  DoneAll as DoneAllIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -40,9 +42,17 @@ interface HeaderProps {
   onMenuClick: () => void;
   notifications?: Notification[];
   sidebarOpen?: boolean;
+  onMarkRead?: (id: number) => void;
+  onMarkAllRead?: () => void;
 }
 
-const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: HeaderProps) => {
+const Header = ({
+  onMenuClick,
+  notifications = [],
+  sidebarOpen = false,
+  onMarkRead,
+  onMarkAllRead,
+}: HeaderProps) => {
   const { user, logout } = useAuth();
   const { isDark } = useThemeMode();
   const theme = useTheme();
@@ -55,18 +65,12 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleProfileMenuClose = () => setAnchorEl(null);
 
   const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
     setNotifAnchorEl(event.currentTarget);
   };
-
-  const handleNotificationsClose = () => {
-    setNotifAnchorEl(null);
-  };
+  const handleNotificationsClose = () => setNotifAnchorEl(null);
 
   const handleProfile = () => {
     handleProfileMenuClose();
@@ -84,16 +88,18 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
     navigate('/logout');
   };
 
+  const handleNotifClick = (notif: Notification) => {
+    if (!notif.read && onMarkRead) {
+      onMarkRead(notif.id);
+    }
+  };
+
   const getSeverityColor = (type: string) => {
     switch (type) {
-      case 'alert':
-        return 'error';
-      case 'work_order':
-        return 'primary';
-      case 'system':
-        return 'info';
-      default:
-        return 'default';
+      case 'alert':      return 'error';
+      case 'work_order': return 'primary';
+      case 'system':     return 'info';
+      default:           return 'default';
     }
   };
 
@@ -104,12 +110,15 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
         zIndex: (theme) => theme.zIndex.drawer + 1,
         backgroundColor: isDark ? '#1E2A3A' : '#fff',
         color: isDark ? '#F1F5F9' : '#333',
-        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
-        borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+        boxShadow: isDark
+          ? '0 1px 3px rgba(0,0,0,0.3)'
+          : '0 1px 3px rgba(0,0,0,0.1)',
+        borderBottom: isDark ? '1px solid rgba(255,255,255,0.05)' : 'none',
         transition: 'background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease',
       }}
     >
       <Toolbar>
+        {/* Sidebar toggle */}
         <IconButton
           edge="start"
           color="inherit"
@@ -118,33 +127,25 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
           sx={{
             mr: 2,
             transition: 'transform 0.2s ease-in-out',
-            '&:hover': {
-              transform: 'scale(1.1)',
-            },
+            '&:hover': { transform: 'scale(1.1)' },
           }}
         >
           {sidebarOpen ? <MenuOpenIcon /> : <MenuIcon />}
         </IconButton>
 
-        {/* Logo and Brand */}
+        {/* Logo */}
         <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
           <MiniMaxiLogo
             size={34}
             showText={false}
-            onClick={() => {
-              const homePath = user?.role === 'technician' ? '/my-work-orders' : '/dashboard';
-              navigate(homePath);
-            }}
+            onClick={() => navigate(user?.role === 'technician' ? '/my-work-orders' : '/dashboard')}
           />
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'block', md: 'none' } }}>
           <MiniMaxiLogo
             size={34}
             showText
-            onClick={() => {
-              const homePath = user?.role === 'technician' ? '/my-work-orders' : '/dashboard';
-              navigate(homePath);
-            }}
+            onClick={() => navigate(user?.role === 'technician' ? '/my-work-orders' : '/dashboard')}
           />
         </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
@@ -152,56 +153,79 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
             size={36}
             showText
             showTagline
-            onClick={() => {
-              const homePath = user?.role === 'technician' ? '/my-work-orders' : '/dashboard';
-              navigate(homePath);
-            }}
+            onClick={() => navigate(user?.role === 'technician' ? '/my-work-orders' : '/dashboard')}
           />
         </Box>
 
-        {/* Spacer */}
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* Notifications */}
-        <IconButton
-          color="inherit"
-          onClick={handleNotificationsOpen}
-          sx={{ mr: 1 }}
-        >
+        {/* Notifications bell */}
+        <IconButton color="inherit" onClick={handleNotificationsOpen} sx={{ mr: 1 }}>
           <Badge badgeContent={unreadCount} color="error">
             <NotificationsIcon />
           </Badge>
         </IconButton>
 
+        {/* Notifications popover */}
         <Popover
           open={Boolean(notifAnchorEl)}
           anchorEl={notifAnchorEl}
           onClose={handleNotificationsClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           PaperProps={{
             sx: {
               width: 360,
-              maxHeight: 400,
+              maxHeight: 480,
               backgroundColor: theme.palette.background.paper,
+              display: 'flex',
+              flexDirection: 'column',
             },
           }}
         >
-          <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+          {/* Popover header */}
+          <Box
+            sx={{
+              p: 2,
+              borderBottom: `1px solid ${theme.palette.divider}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexShrink: 0,
+            }}
+          >
             <Typography variant="subtitle1" fontWeight={600}>
               Notifications
+              {unreadCount > 0 && (
+                <Chip
+                  label={unreadCount}
+                  size="small"
+                  color="error"
+                  sx={{ ml: 1, height: 18, fontSize: '0.65rem' }}
+                />
+              )}
             </Typography>
+
+            {/* Mark all as read button */}
+            {unreadCount > 0 && (
+              <Button
+                size="small"
+                startIcon={<DoneAllIcon fontSize="small" />}
+                onClick={() => {
+                  onMarkAllRead?.();
+                }}
+                sx={{ fontSize: '0.75rem', textTransform: 'none' }}
+              >
+                Mark all read
+              </Button>
+            )}
           </Box>
-          <List sx={{ p: 0 }}>
+
+          {/* Notification list */}
+          <List sx={{ p: 0, overflowY: 'auto', flexGrow: 1 }}>
             {notifications.length === 0 ? (
               <ListItem>
                 <ListItemText
@@ -211,15 +235,22 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
                 />
               </ListItem>
             ) : (
-              notifications.slice(0, 5).map((notif) => (
+              notifications.slice(0, 8).map((notif) => (
                 <ListItemButton
                   key={notif.id}
+                  onClick={() => handleNotifClick(notif)}
                   sx={{
+                    borderBottom: `1px solid ${theme.palette.divider}`,
                     bgcolor: notif.read
                       ? 'transparent'
                       : isDark
-                        ? 'rgba(90, 159, 212, 0.1)'
-                        : 'rgba(25, 118, 210, 0.05)',
+                        ? 'rgba(90,159,212,0.1)'
+                        : 'rgba(25,118,210,0.05)',
+                    '&:hover': {
+                      bgcolor: isDark
+                        ? 'rgba(90,159,212,0.15)'
+                        : 'rgba(25,118,210,0.08)',
+                    },
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
@@ -233,7 +264,7 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography variant="body2" fontWeight={notif.read ? 400 : 600}>
                           {notif.title}
                         </Typography>
                         <Chip
@@ -246,10 +277,10 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
                     }
                     secondary={
                       <>
-                        <Typography variant="caption" display="block">
+                        <Typography variant="caption" display="block" color="text.secondary">
                           {notif.message}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.disabled">
                           {format(new Date(notif.created_at), 'MMM d, h:mm a')}
                         </Typography>
                       </>
@@ -259,31 +290,35 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
               ))
             )}
           </List>
-          {notifications.length > 5 && (
-            <Box sx={{ p: 1, borderTop: `1px solid ${theme.palette.divider}`, textAlign: 'center' }}>
+
+          {/* View all footer */}
+          {notifications.length > 8 && (
+            <Box
+              sx={{
+                p: 1,
+                borderTop: `1px solid ${theme.palette.divider}`,
+                textAlign: 'center',
+                flexShrink: 0,
+              }}
+            >
               <Typography
                 variant="body2"
                 color="primary"
                 sx={{ cursor: 'pointer' }}
                 onClick={() => {
                   handleNotificationsClose();
-                  navigate('/alerts');
+                 navigate('/notifications')
                 }}
               >
-                View all notifications
+                View all ({notifications.length})
               </Typography>
             </Box>
           )}
         </Popover>
 
-        {/* User Menu */}
+        {/* User avatar + menu */}
         <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'pointer',
-            ml: 1,
-          }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', ml: 1 }}
           onClick={handleProfileMenuOpen}
         >
           <Avatar
@@ -302,49 +337,38 @@ const Header = ({ onMenuClick, notifications = [], sidebarOpen = false }: Header
             <Typography variant="body2" fontWeight={500}>
               {user?.name || 'User'}
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textTransform: 'capitalize' }}
+            >
               {user?.role || 'Guest'}
             </Typography>
           </Box>
         </Box>
 
+        {/* Profile dropdown menu */}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={handleProfileMenuClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          PaperProps={{
-            sx: {
-              backgroundColor: theme.palette.background.paper,
-            },
-          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { backgroundColor: theme.palette.background.paper } }}
         >
           <MenuItem onClick={handleProfile}>
-            <ListItemIcon>
-              <PersonIcon fontSize="small" />
-            </ListItemIcon>
+            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Profile</ListItemText>
           </MenuItem>
           {user?.role === 'admin' && (
             <MenuItem onClick={handleSettings}>
-              <ListItemIcon>
-                <SettingsIcon fontSize="small" />
-              </ListItemIcon>
+              <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
               <ListItemText>Settings</ListItemText>
             </MenuItem>
           )}
           <Divider />
           <MenuItem onClick={handleLogout}>
-            <ListItemIcon>
-              <LogoutIcon fontSize="small" />
-            </ListItemIcon>
+            <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Logout</ListItemText>
           </MenuItem>
         </Menu>

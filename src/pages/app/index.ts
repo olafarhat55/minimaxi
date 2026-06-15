@@ -1,12 +1,14 @@
 export { default as Dashboard } from './Dashboard';
 export { default as MachinesList } from './MachinesList';
 export { default as MachineDetails } from './MachineDetails';
+export { default as MachineHistory } from './MachineHistory';
 export { default as WorkOrders } from './WorkOrders';
 export { default as CreateWorkOrder } from './CreateWorkOrder';
 export { default as WorkOrderDetails } from './WorkOrderDetails';
 export { default as MyWorkOrders } from './MyWorkOrders';
 export { default as MaintenancePlanning } from './MaintenancePlanning';
 export { default as Alerts } from './Alerts';
+export { default as Notifications } from './Notifications';
 export { default as Reports } from './Reports';
 export { default as UserManagement } from './UserManagement';
 export { default as Settings } from './Settings';
