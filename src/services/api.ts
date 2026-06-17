@@ -286,7 +286,7 @@ const realApi = {
     status:              'OPEN',
     due_date:            data.due_date ? data.due_date.split('T')[0] : null,
     ai_suggested:        false,
-    estimated_hours:     data.estimated_hours ? Number(data.estimated_hours) : undefined,
+   estimatedHours: data.estimated_hours ? Number(data.estimated_hours) : undefined,
   });
 },
 
@@ -299,7 +299,8 @@ const realApi = {
     if (data.dueDate             !== undefined) payload.dueDate           = data.dueDate;
     if (data.due_date            !== undefined) payload.dueDate           = data.due_date.split('T')[0];
     if (data.assignedToUserId    !== undefined) payload.assignedToUserId  = data.assignedToUserId;
-    if (data.assigned_to_user_id !== undefined) payload.assignedToUserId  = data.assigned_to_user_id;
+    if (data.assigned_to_user_id !== undefined) payload.assignedToUserId = data.assigned_to_user_id;
+    if (data.estimatedHours !== undefined) payload.estimatedHours = data.estimatedHours;
     return axiosInstance.put(`/work-orders/${id}`, payload)
       .then((d: any) => normalizeWorkOrder(d));
   },

@@ -112,14 +112,14 @@ const CreateWorkOrder = () => {
     setError('');
     try {
       if (isEditMode && id) {
-        await api.updateWorkOrder(id, {
-          title:            formData.title,
-          description:      formData.description,
-          priority:         formData.priority.toUpperCase(),
-          // status intentionally omitted — Engineer uses Cancel button on details page
-          dueDate:          formData.due_date ? formData.due_date.split('T')[0] : undefined,
-          assignedToUserId: formData.assigned_to?.id,
-        });
+      await api.updateWorkOrder(id, {
+  title:            formData.title,
+  description:      formData.description,
+  priority:         formData.priority.toUpperCase(),
+  dueDate:          formData.due_date ? formData.due_date.split('T')[0] : undefined,
+  assignedToUserId: formData.assigned_to?.id,
+  estimatedHours:   formData.estimated_hours ? Number(formData.estimated_hours) : undefined, // ✅ أضيفي دي
+});
         setSuccess('Work order updated successfully!');
       } else {
         await api.createWorkOrder({ ...formData, created_by: { id: user.id, name: user.name } });

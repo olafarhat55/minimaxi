@@ -207,11 +207,16 @@ export interface MaintenanceEvent {
 
 export interface Notification {
   id: number;
+  user_id?: number;
   type: string;
   title: string;
   message: string;
   read: boolean;
   created_at: string;
+  severity?: string;
+  machine_id?: number | null;
+  machine_name?: string | null;
+  work_order_id?: number | null;
 }
 
 // ============ REPORTS ============

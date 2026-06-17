@@ -403,7 +403,7 @@ if (!force && isForeignKeyError) {
                   <TableCell>Failure Risk</TableCell>
                   <TableCell>RUL (cycles)</TableCell>
                   <TableCell>TTF</TableCell>
-                  <TableCell>Last Maintenance</TableCell>
+                 
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -450,46 +450,48 @@ if (!force && isForeignKeyError) {
                     </TableCell>
                     <TableCell>{machine.prediction.rul}</TableCell>
                     <TableCell>{machine.prediction.ttf}</TableCell>
-                    <TableCell>{machine.last_maintenance}</TableCell>
+                    
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleViewDetails(machine.id)}
-                        title="View Details"
-                      >
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/machines/${machine.id}/history`)}
-                        title="View History"
-                      >
-                        <HistoryIcon fontSize="small" />
-                      </IconButton>
-                      {canCreateWorkOrder(user) && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleCreateWorkOrder(machine)}
-                          title="Create Work Order"
-                        >
-                          <WorkOrderIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                      {canDeleteAsset(user) && (
-                        <IconButton
-                          size="small"
-                          title="Delete Asset"
-                          sx={{ color: 'error.main' }}
-                          onClick={() => {
-                            setMachineToDelete(machine.id);
-                            setDependencyInfo(null);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </TableCell>
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+    <IconButton
+      size="small"
+      onClick={() => handleViewDetails(machine.id)}
+      title="View Details"
+    >
+      <ViewIcon fontSize="small" />
+    </IconButton>
+    <IconButton
+      size="small"
+      onClick={() => navigate(`/machines/${machine.id}/history`)}
+      title="View History"
+    >
+      <HistoryIcon fontSize="small" />
+    </IconButton>
+    {canCreateWorkOrder(user) && (
+      <IconButton
+        size="small"
+        onClick={() => handleCreateWorkOrder(machine)}
+        title="Create Work Order"
+      >
+        <WorkOrderIcon fontSize="small" />
+      </IconButton>
+    )}
+    {canDeleteAsset(user) && (
+      <IconButton
+        size="small"
+        title="Delete Asset"
+        sx={{ color: 'error.main' }}
+        onClick={() => {
+          setMachineToDelete(machine.id);
+          setDependencyInfo(null);
+          setDeleteDialogOpen(true);
+        }}
+      >
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    )}
+  </Box>
+</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

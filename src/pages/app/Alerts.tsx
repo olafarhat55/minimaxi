@@ -22,6 +22,7 @@ import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common';
 import type { Alert as AlertType } from '../../types';
+import { userCan } from '../../utils/permissions';
 
 // ── Real severity values from backend: critical | high | medium | low ────────
 const severityConfig: Record<string, { color: string; bgcolor: string; icon: typeof ErrorIcon }> = {
@@ -41,6 +42,8 @@ const buildParams = (filter: string): Record<string, string> => {
   }
 };
 
+const POLL_INTERVAL = 8000; // 8 ثواني
+
 const Alerts = () => {
   const { user } = useAuth();
   const [loading, setLoading]     = useState(true);
@@ -50,26 +53,33 @@ const Alerts = () => {
 
   // ── full list once — for header stats ──────────────────────────────────────
   useEffect(() => {
-    api.getAlerts()
-      .then((data: AlertType[]) => setAllAlerts(data))
-      .catch(() => {});
+    const fetchAll = () => {
+      api.getAlerts()
+        .then((data: AlertType[]) => setAllAlerts(data))
+        .catch(() => {});
+    };
+    fetchAll();
+    const interval = setInterval(fetchAll, POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, []);
 
   // ── filtered list on every filter change ───────────────────────────────────
-  const fetchFiltered = useCallback(async (currentFilter: string) => {
-    setLoading(true);
+  const fetchFiltered = useCallback(async (currentFilter: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data: AlertType[] = await api.getAlerts(buildParams(currentFilter));
       setAlerts(data);
     } catch (err) {
       console.error('Failed to fetch alerts:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchFiltered(filter);
+    const interval = setInterval(() => fetchFiltered(filter, true), POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, [filter, fetchFiltered]);
 
   // ── acknowledge ────────────────────────────────────────────────────────────
@@ -221,7 +231,7 @@ const Alerts = () => {
                     </Box>
 
                     {/* Acknowledge button — only for unacknowledged */}
-                    {!alert.acknowledged && (
+                    {!alert.acknowledged && user?.role !== 'technician' && (
                       <Button
                         variant="outlined"
                         size="small"

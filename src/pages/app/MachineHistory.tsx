@@ -65,7 +65,7 @@ const MachineHistory = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <IconButton onClick={() => navigate(`/machines/${id}`)}>
+        <IconButton onClick={() => navigate('/machines')}>
           <BackIcon />
         </IconButton>
         <Box>

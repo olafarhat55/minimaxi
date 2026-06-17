@@ -88,11 +88,15 @@ const Header = ({
     navigate('/logout');
   };
 
-  const handleNotifClick = (notif: Notification) => {
-    if (!notif.read && onMarkRead) {
-      onMarkRead(notif.id);
-    }
-  };
+ const handleNotifClick = (notif: Notification) => {
+  if (!notif.read && onMarkRead) {
+    onMarkRead(notif.id);
+  }
+  if (notif.work_order_id) {
+    handleNotificationsClose();
+    navigate(`/work-orders/${notif.work_order_id}`);
+  }
+};
 
   const getSeverityColor = (type: string) => {
     switch (type) {

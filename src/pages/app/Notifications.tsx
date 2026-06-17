@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom'; 
 import {
   Box,
   Typography,
@@ -48,6 +49,12 @@ const typeConfig: Record<
     bgcolor: '#e1f5fe',
     icon: SystemIcon,
   },
+predicted_failure: {
+  label: 'Prediction',
+  color: '#9c27b0',
+  bgcolor: '#f3e5f5',
+  icon: WarningIcon,
+},
 };
 
 const getFallbackConfig = (type: string) =>
@@ -58,26 +65,32 @@ const getFallbackConfig = (type: string) =>
     icon: NotifIcon,
   };
 
+const POLL_INTERVAL = 10000; // 10 ثواني
+
 const Notifications = () => {
-  const [loading, setLoading]           = useState(true);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [filter, setFilter]             = useState('all');
+  const [filter, setFilter] = useState('all');
+  
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
+  const fetchNotifications = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await api.getNotifications();
       setNotifications(data as Notification[]);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchNotifications();
+    const interval = setInterval(() => fetchNotifications(true), POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, [fetchNotifications]);
 
   // ── Mark single as read ───────────────────────────────────────────────────
@@ -91,6 +104,23 @@ const Notifications = () => {
       console.error('Failed to mark notification as read:', err);
     }
   };
+
+  const handleNotificationClick = async (notif: Notification) => {
+    console.log('clicked notif:', notif);
+  if (!notif.read) {
+    try {
+      await api.markNotificationRead(notif.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+      );
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+    }
+  }
+  if (notif.type === 'work_order' && notif.work_order_id) {
+    navigate(`/work-orders/${notif.work_order_id}`);
+  }
+};
 
   // ── Mark all as read ──────────────────────────────────────────────────────
   const handleMarkAllRead = async () => {
@@ -216,104 +246,106 @@ const Notifications = () => {
             const Icon   = config.icon;
 
             return (
-              <Card
-                key={notif.id}
-                sx={{
-                  borderRadius: 2,
-                  borderLeft: `4px solid ${notif.read ? '#e0e0e0' : config.color}`,
-                  opacity: notif.read ? 0.75 : 1,
-                  transition: 'opacity 0.2s',
-                  cursor: notif.read ? 'default' : 'pointer',
-                  '&:hover': { boxShadow: 3 },
-                }}
-                onClick={() => !notif.read && handleMarkRead(notif.id)}
-              >
-                <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                    {/* Icon avatar */}
-                    <Avatar
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        bgcolor: config.bgcolor,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Icon sx={{ color: config.color, fontSize: 20 }} />
-                    </Avatar>
+  <Card
+    key={notif.id}
+    sx={{
+      borderRadius: 2,
+      borderLeft: `4px solid ${notif.read ? '#e0e0e0' : config.color}`,
+      opacity: notif.read ? 0.75 : 1,
+      transition: 'opacity 0.2s',
+      cursor: (notif.type === 'work_order' && notif.work_order_id) || !notif.read
+        ? 'pointer'
+        : 'default',
+      '&:hover': { boxShadow: 3 },
+    }}
+    onClick={() => handleNotificationClick(notif)}
+  >
+    <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+        {/* Icon avatar */}
+        <Avatar
+          sx={{
+            width: 40,
+            height: 40,
+            bgcolor: config.bgcolor,
+            flexShrink: 0,
+          }}
+        >
+          <Icon sx={{ color: config.color, fontSize: 20 }} />
+        </Avatar>
 
-                    {/* Content */}
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          mb: 0.5,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          fontWeight={notif.read ? 400 : 600}
-                          noWrap
-                        >
-                          {notif.title}
-                        </Typography>
-                        <Chip
-                          label={config.label}
-                          size="small"
-                          sx={{
-                            bgcolor: config.bgcolor,
-                            color: config.color,
-                            fontSize: '0.65rem',
-                            height: 18,
-                          }}
-                        />
-                        {!notif.read && (
-                          <UnreadDot
-                            sx={{ fontSize: 10, color: config.color, ml: 'auto' }}
-                          />
-                        )}
-                      </Box>
+        {/* Content */}
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 0.5,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              fontWeight={notif.read ? 400 : 600}
+              noWrap
+            >
+              {notif.title}
+            </Typography>
+            <Chip
+              label={config.label}
+              size="small"
+              sx={{
+                bgcolor: config.bgcolor,
+                color: config.color,
+                fontSize: '0.65rem',
+                height: 18,
+              }}
+            />
+            {!notif.read && (
+              <UnreadDot
+                sx={{ fontSize: 10, color: config.color, ml: 'auto' }}
+              />
+            )}
+          </Box>
 
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 0.5 }}
-                      >
-                        {notif.message}
-                      </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 0.5 }}
+          >
+            {notif.message}
+          </Typography>
 
-                      <Typography variant="caption" color="text.disabled">
-                        {format(new Date(notif.created_at), 'MMM d, yyyy · h:mm a')}
-                      </Typography>
-                    </Box>
+          <Typography variant="caption" color="text.disabled">
+            {format(new Date(notif.created_at), 'MMM d, yyyy · h:mm a')}
+          </Typography>
+        </Box>
 
-                    {/* Mark read button */}
-                    {!notif.read && (
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMarkRead(notif.id);
-                        }}
-                        sx={{
-                          fontSize: '0.7rem',
-                          textTransform: 'none',
-                          flexShrink: 0,
-                          alignSelf: 'center',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Mark read
-                      </Button>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            );
+        {/* Mark read button */}
+        {!notif.read && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMarkRead(notif.id);
+            }}
+            sx={{
+              fontSize: '0.7rem',
+              textTransform: 'none',
+              flexShrink: 0,
+              alignSelf: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Mark read
+          </Button>
+        )}
+      </Box>
+    </CardContent>
+  </Card>
+);
           })}
         </Box>
       )}
