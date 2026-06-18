@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -81,7 +81,8 @@ interface SensorThreshold {
   canOverride: boolean;
   description: string;
   asset_type_id?: number;
-  asset_type_name?: string; // ← ده اللي هنستخدمه مباشرة
+  asset_type_name?: string;
+  sensorTypeId?: number;   // ← جديد
 }
 
 interface AIModelInfo {
@@ -131,9 +132,10 @@ const BLANK_ASSET: Omit<AssetType, 'id'> = {
 };
 
 const BLANK_SENSOR: Omit<SensorThreshold, 'id'> = {
-  name: '', unit: '', warningThreshold: 0, criticalThreshold: 0, 
+  name: '', unit: '', warningThreshold: 0, criticalThreshold: 0,
   canOverride: true, description: '',
-  asset_type_id: undefined, // ← أضيفي
+  asset_type_id: undefined,
+  sensorTypeId: undefined,   // ← جديد
 };
 
 const TRAINING_LOGS: TrainingLog[] = [
@@ -277,6 +279,17 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
   const [sensorModal, setSensorModal]   = useState({ open: false, editing: null as SensorThreshold | null });
   const [sensorForm, setSensorForm] = useState<Omit<SensorThreshold, 'id'>>(BLANK_SENSOR);
   const [sensorErrors, setSensorErrors] = useState<Record<string, string>>({});
+  const [sensorTypes, setSensorTypes] = useState<Array<{ id: number; name: string; unit: string }>>([]);
+  // ── Derived: catalog of known sensor types (id + name + unit) from loaded thresholds ──
+const sensorTypeCatalog = useMemo(() => {
+  const map = new Map<number, { id: number; name: string; unit: string }>();
+  sensors.forEach((s) => {
+    if (s.sensorTypeId != null && !map.has(s.sensorTypeId)) {
+      map.set(s.sensorTypeId, { id: s.sensorTypeId, name: s.name, unit: s.unit });
+    }
+  });
+  return Array.from(map.values());
+}, [sensors]);
 
   // ── Tab 4: AI Model ─────────────────────────────────────────────────────────
   const [aiModel, setAiModel]           = useState<AIModelInfo | null>(null);
@@ -313,12 +326,14 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
     const load = async () => {
       setLoading(true);
       try {
-        const [companyData, assetData, sensorData, aiData] = await Promise.all([
-          api.getCompanySettings(),
-          api.getAssetTypes(),
-          api.getSensorThresholds(),
-          api.getAIModelInfo(),
-        ]);
+     const [companyData, assetData, sensorData, aiData, sensorTypesData] = await Promise.all([
+  api.getCompanySettings(),
+  api.getAssetTypes(),
+  api.getSensorThresholds(),
+  api.getAIModelInfo(),
+  (api as any).getSensorTypes().catch(() => []),
+     ]);
+        setSensorTypes(sensorTypesData);
         setCompany({
           name:       companyData.name        || '',
           industry:   (companyData as any).industry   || 'manufacturing',
@@ -452,27 +467,28 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
     (s) => !sensorSearch || s.name.toLowerCase().includes(sensorSearch.toLowerCase()),
   );
 
-  const openAddSensor = () => {
-    setSensorForm(BLANK_SENSOR);
-    setSensorErrors({});
-    setSensorModal({ open: true, editing: null });
-  };
+ const openAddSensor = () => {
+  setSensorForm(BLANK_SENSOR);
+  setSensorErrors({});
+  setSensorModal({ open: true, editing: null });
+};
 
-  const openEditSensor = (item: SensorThreshold) => {
+const openEditSensor = (item: SensorThreshold) => {
   setSensorForm({
     name: item.name, unit: item.unit,
     warningThreshold: item.warningThreshold, criticalThreshold: item.criticalThreshold,
     canOverride: item.canOverride, description: item.description,
-    asset_type_id: item.asset_type_id, // ← أضيفي السطر ده
+    asset_type_id: item.asset_type_id,
+    sensorTypeId: item.sensorTypeId,   // ← جديد
   });
   setSensorErrors({});
   setSensorModal({ open: true, editing: item });
 };
 
-  const validateSensor = () => {
+ const validateSensor = () => {
   const errors: Record<string, string> = {};
-  if (!sensorForm.name.trim())  errors.name = 'Sensor name is required';
-  if (!sensorForm.unit.trim())  errors.unit = 'Unit is required';
+  if (!sensorForm.sensorTypeId) errors.sensorTypeId = 'Sensor type is required';
+  if (!sensorForm.asset_type_id) errors.asset_type_id = 'Asset type is required';
   if (sensorForm.warningThreshold === '' as unknown as number || isNaN(Number(sensorForm.warningThreshold))) {
     errors.warningThreshold = 'Warning threshold is required';
   }
@@ -481,7 +497,6 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
   } else if (Number(sensorForm.criticalThreshold) <= Number(sensorForm.warningThreshold)) {
     errors.criticalThreshold = 'Critical threshold must be greater than warning threshold';
   }
-  if (!sensorForm.asset_type_id) errors.asset_type_id = 'Asset type is required'; // ← هنا
   setSensorErrors(errors);
   return Object.keys(errors).length === 0;
 };
@@ -490,12 +505,12 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
     if (!validateSensor()) return;
     setSaving(true);
     try {
-    const payload = {
+   const payload = {
   ...sensorForm,
   warningThreshold:  Number(sensorForm.warningThreshold),
   criticalThreshold: Number(sensorForm.criticalThreshold),
-  assetTypeId:  sensorForm.asset_type_id ?? (sensorModal.editing as any)?.asset_type_id ?? 1, // ← عدّلي السطر ده
-  sensorTypeId: (sensorModal.editing as any)?.sensorTypeId ?? 1,
+  assetTypeId:  sensorForm.asset_type_id ?? (sensorModal.editing as any)?.asset_type_id,
+  sensorTypeId: sensorForm.sensorTypeId  ?? (sensorModal.editing as any)?.sensorTypeId,
 };  if (sensorModal.editing) {
         const updated = await api.updateSensorThreshold(sensorModal.editing.id, payload);
         setSensors((prev) => prev.map((s) => s.id === sensorModal.editing!.id ? updated : s));
@@ -900,7 +915,7 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
                   </Typography>
                 </Box>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={openAddSensor}>
-                  Add Sensor Type
+                  Add Threshold
                 </Button>
               </Box>
 
@@ -932,7 +947,7 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
                       <TableCell align="center">Unit</TableCell>
                       <TableCell align="center">Default Warning</TableCell>
                       <TableCell align="center">Default Critical</TableCell>
-                      <TableCell align="center">Can Override</TableCell>
+                   
                       <TableCell align="center">Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -974,12 +989,7 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
                             sx={{ bgcolor: isDark ? '#2d0f0f' : '#fee2e2', color: '#dc2626', fontWeight: 600 }}
                           />
                         </TableCell>
-                        <TableCell align="center">
-                          {item.canOverride
-                            ? <CheckIcon fontSize="small" sx={{ color: '#22c55e' }} />
-                            : <Typography variant="body2" color="text.secondary">—</Typography>
-                          }
-                        </TableCell>
+                        
                         <TableCell align="center">
                           <Tooltip title="Edit">
                             <IconButton size="small" onClick={() => openEditSensor(item)} sx={{ mr: 0.5 }}>
@@ -1249,105 +1259,69 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
           DIALOG: Add / Edit Asset Type
       ═══════════════════════════════════════════════════════════ */}
       <Dialog
-        open={assetModal.open}
-        onClose={() => setAssetModal({ open: false, editing: null })}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{assetModal.editing ? 'Edit Asset Type' : 'Add Asset Type'}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
-  <Grid size={{ xs: 12 }}>
-    <TextField
-      select fullWidth
-      label="Asset Type *"
-      value={sensorForm.asset_type_id ?? ''}
-      onChange={(e) => setSensorForm((p) => ({ ...p, asset_type_id: Number(e.target.value) }))}
-      error={!!sensorErrors.asset_type_id}
-      helperText={sensorErrors.asset_type_id}
-    >
-      {assetTypes.map((a) => (
-        <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
-      ))}
-    </TextField>
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6 }}>
-    <TextField
-      fullWidth
-      label="Sensor Name *"
-      value={sensorForm.name}
-      onChange={(e) => setSensorForm((p) => ({ ...p, name: e.target.value }))}
-      error={!!sensorErrors.name}
-      helperText={sensorErrors.name}
-    />
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6 }}>
-    <TextField
-      fullWidth
-      label="Unit *"
-      placeholder="e.g. °C, mm/s, BAR"
-      value={sensorForm.unit}
-      onChange={(e) => setSensorForm((p) => ({ ...p, unit: e.target.value }))}
-      error={!!sensorErrors.unit}
-      helperText={sensorErrors.unit}
-    />
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6 }}>
-    <TextField
-      fullWidth
-      type="number"
-      label="Default Warning Threshold *"
-      value={sensorForm.warningThreshold}
-      onChange={(e) => setSensorForm((p) => ({ ...p, warningThreshold: Number(e.target.value) }))}
-      error={!!sensorErrors.warningThreshold}
-      helperText={sensorErrors.warningThreshold}
-    />
-  </Grid>
-  <Grid size={{ xs: 12, sm: 6 }}>
-    <TextField
-      fullWidth
-      type="number"
-      label="Default Critical Threshold *"
-      value={sensorForm.criticalThreshold}
-      onChange={(e) => setSensorForm((p) => ({ ...p, criticalThreshold: Number(e.target.value) }))}
-      error={!!sensorErrors.criticalThreshold}
-      helperText={sensorErrors.criticalThreshold}
-    />
-  </Grid>
-  <Grid size={{ xs: 12 }}>
-    <TextField
-      fullWidth
-      label="Description"
-      value={sensorForm.description}
-      onChange={(e) => setSensorForm((p) => ({ ...p, description: e.target.value }))}
-    />
-  </Grid>
-  <Grid size={{ xs: 12 }}>
-    <FormControlLabel
-      control={
-        <Switch
-          checked={sensorForm.canOverride}
-          color="primary"
-          onChange={(_, checked) => setSensorForm((p) => ({ ...p, canOverride: checked }))}
+  open={assetModal.open}
+  onClose={() => setAssetModal({ open: false, editing: null })}
+  maxWidth="sm"
+  fullWidth
+>
+  <DialogTitle>{assetModal.editing ? 'Edit Asset Type' : 'Add Asset Type'}</DialogTitle>
+  <DialogContent>
+    <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
+      <Grid size={{ xs: 12 }}>
+        <TextField
+          fullWidth
+          label="Asset Type Name *"
+          value={assetForm.name}
+          onChange={(e) => setAssetForm((p) => ({ ...p, name: e.target.value }))}
+          error={!!assetErrors.name}
+          helperText={assetErrors.name}
         />
-      }
-      label="Allow per-asset threshold override"
-    />
-  </Grid>
-</Grid>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setAssetModal({ open: false, editing: null })}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveAsset}
-            disabled={saving}
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
-          >
-            {assetModal.editing ? 'Save Changes' : 'Add Asset Type'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </Grid>
+      <Grid size={{ xs: 12 }}>
+        <TextField
+          fullWidth
+          label="Description"
+          value={assetForm.description}
+          onChange={(e) => setAssetForm((p) => ({ ...p, description: e.target.value }))}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <TextField
+          fullWidth
+          type="number"
+          label="Maintenance Interval (days)"
+          value={assetForm.maintenanceInterval}
+          onChange={(e) =>
+            setAssetForm((p) => ({ ...p, maintenanceInterval: Number(e.target.value) }))
+          }
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6 }} sx={{ display: 'flex', alignItems: 'center' }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={assetForm.active}
+              color="primary"
+              onChange={(_, checked) => setAssetForm((p) => ({ ...p, active: checked }))}
+            />
+          }
+          label="Active"
+        />
+      </Grid>
+    </Grid>
+  </DialogContent>
+  <DialogActions sx={{ px: 3, pb: 2.5 }}>
+    <Button onClick={() => setAssetModal({ open: false, editing: null })}>Cancel</Button>
+    <Button
+      variant="contained"
+      onClick={handleSaveAsset}
+      disabled={saving}
+      startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+    >
+      {assetModal.editing ? 'Save Changes' : 'Add Asset Type'}
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* ═══════════════════════════════════════════════════════════
           DIALOG: Add / Edit Sensor Threshold
@@ -1358,30 +1332,58 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{sensorModal.editing ? 'Edit Sensor Type' : 'Add Sensor Type'}</DialogTitle>
+        <DialogTitle>{sensorModal.editing ? 'Edit Threshold' : 'Add Threshold'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Sensor Name *"
-                value={sensorForm.name}
-                onChange={(e) => setSensorForm((p) => ({ ...p, name: e.target.value }))}
-                error={!!sensorErrors.name}
-                helperText={sensorErrors.name}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Unit *"
-                placeholder="e.g. °C, mm/s, BAR"
-                value={sensorForm.unit}
-                onChange={(e) => setSensorForm((p) => ({ ...p, unit: e.target.value }))}
-                error={!!sensorErrors.unit}
-                helperText={sensorErrors.unit}
-              />
-            </Grid>
+  <TextField
+    select
+    fullWidth
+    label="Sensor Type *"
+    value={sensorForm.sensorTypeId ?? ''}
+    disabled={!!sensorModal.editing}
+    onChange={(e) => {
+      const id = Number(e.target.value);
+      const found = sensorTypes.find((s) => s.id === id);
+      setSensorForm((p) => ({
+        ...p,
+        sensorTypeId: id,
+        name: found?.name ?? p.name,
+        unit: found?.unit ?? p.unit,
+      }));
+    }}
+    error={!!sensorErrors.sensorTypeId}
+    helperText={sensorErrors.sensorTypeId}
+  >
+   {sensorTypes.map((s) => (
+  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+))}
+  </TextField>
+</Grid>
+<Grid size={{ xs: 12, sm: 6 }}>
+  <TextField
+    select
+    fullWidth
+    label="Asset Type *"
+    value={sensorForm.asset_type_id ?? ''}
+    disabled={!!sensorModal.editing}
+    onChange={(e) => setSensorForm((p) => ({ ...p, asset_type_id: Number(e.target.value) }))}
+    error={!!sensorErrors.asset_type_id}
+    helperText={sensorErrors.asset_type_id}
+  >
+    {assetTypes.map((a) => (
+      <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
+    ))}
+  </TextField>
+</Grid>
+<Grid size={{ xs: 12, sm: 6 }}>
+  <TextField
+    fullWidth
+    label="Unit"
+    value={sensorForm.unit}
+    InputProps={{ readOnly: true }}
+  />
+</Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
@@ -1413,18 +1415,7 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
               />
             
             </Grid>
-            <Grid size={{ xs: 12 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={sensorForm.canOverride}
-                    color="primary"
-                    onChange={(_, checked) => setSensorForm((p) => ({ ...p, canOverride: checked }))}
-                  />
-                }
-                label="Allow per-asset threshold override"
-              />
-            </Grid>
+           
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
@@ -1435,7 +1426,7 @@ const [activeTab, setActiveTab] = useState(Number(tabParam) || 0);
             disabled={saving}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {sensorModal.editing ? 'Save Changes' : 'Add Sensor Type'}
+            {sensorModal.editing ? 'Save Changes' : 'Add Threshold'}
           </Button>
         </DialogActions>
       </Dialog>

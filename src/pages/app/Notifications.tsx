@@ -104,9 +104,7 @@ const Notifications = () => {
       console.error('Failed to mark notification as read:', err);
     }
   };
-
-  const handleNotificationClick = async (notif: Notification) => {
-    console.log('clicked notif:', notif);
+const handleNotificationClick = async (notif: Notification) => {
   if (!notif.read) {
     try {
       await api.markNotificationRead(notif.id);
@@ -117,8 +115,20 @@ const Notifications = () => {
       console.error('Failed to mark as read:', err);
     }
   }
+
   if (notif.type === 'work_order' && notif.work_order_id) {
     navigate(`/work-orders/${notif.work_order_id}`);
+  } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && notif.machine_id) {
+    navigate(`/machines/${notif.machine_id}`);
+  } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && !notif.machine_id) {
+    navigate('/alerts');
+  } else if (notif.type === 'predicted_failure' && notif.machine_id) {
+    navigate(`/machines/${notif.machine_id}`);
+  } else if (notif.type === 'predicted_failure' && !notif.machine_id) {
+    navigate('/alerts');
+  } else {
+    // fallback لأي type تاني
+    navigate('/notifications');
   }
 };
 
@@ -253,9 +263,7 @@ const Notifications = () => {
       borderLeft: `4px solid ${notif.read ? '#e0e0e0' : config.color}`,
       opacity: notif.read ? 0.75 : 1,
       transition: 'opacity 0.2s',
-      cursor: (notif.type === 'work_order' && notif.work_order_id) || !notif.read
-        ? 'pointer'
-        : 'default',
+    cursor: 'pointer',
       '&:hover': { boxShadow: 3 },
     }}
     onClick={() => handleNotificationClick(notif)}

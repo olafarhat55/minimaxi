@@ -137,10 +137,15 @@ const AddAsset = () => {
   const [showApiKey, setShowApiKey] = useState(false);
 
   // ── جلب الـ asset types من الـ API ──────────────────────────
+  // ── جلب الـ asset types من الـ API (active بس) ──────────────────────────
+ // ── جلب الـ asset types من الـ API (active بس) ──────────────────────────
   useEffect(() => {
     api.getAssetTypes()
       .then((data: any[]) => {
-        const names = data.map((a) => a.name).filter(Boolean);
+        const names = data
+          .filter((a) => a.active !== false) // استبعاد الأنواع المعطّلة
+          .map((a) => a.name)
+          .filter(Boolean);
         if (names.length > 0) setAssetTypesList(names);
       })
       .catch(() => {

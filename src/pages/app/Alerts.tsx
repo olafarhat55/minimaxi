@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';   // ← 1. أضفنا useNavigate
 import {
   Box,
   Typography,
@@ -22,7 +23,6 @@ import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common';
 import type { Alert as AlertType } from '../../types';
-import { userCan } from '../../utils/permissions';
 
 // ── Real severity values from backend: critical | high | medium | low ────────
 const severityConfig: Record<string, { color: string; bgcolor: string; icon: typeof ErrorIcon }> = {
@@ -33,22 +33,22 @@ const severityConfig: Record<string, { color: string; bgcolor: string; icon: typ
 };
 
 // ── Map UI filter → API query params ─────────────────────────────────────────
-// Backend supports: ?severity=critical|high|medium|low  OR  ?acknowledged=false
 const buildParams = (filter: string): Record<string, string> => {
   switch (filter) {
     case 'unacknowledged': return { acknowledged: 'false' };
     case 'all':            return {};
-    default:               return { severity: filter }; // critical | high | medium | low
+    default:               return { severity: filter };
   }
 };
 
-const POLL_INTERVAL = 8000; // 8 ثواني
+const POLL_INTERVAL = 8000;
 
 const Alerts = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();                  // ← 2. أضفنا navigate
   const [loading, setLoading]     = useState(true);
   const [alerts, setAlerts]       = useState<AlertType[]>([]);
-  const [allAlerts, setAllAlerts] = useState<AlertType[]>([]); // for stats only
+  const [allAlerts, setAllAlerts] = useState<AlertType[]>([]);
   const [filter, setFilter]       = useState('all');
 
   // ── full list once — for header stats ──────────────────────────────────────
@@ -85,7 +85,6 @@ const Alerts = () => {
   // ── acknowledge ────────────────────────────────────────────────────────────
   const handleAcknowledge = async (alertId: number) => {
     try {
-      // PUT /api/alerts/{id}/acknowledge  body: { user: "name" }
       await api.acknowledgeAlert(alertId, user.name);
       const now = new Date().toISOString();
 
@@ -134,7 +133,7 @@ const Alerts = () => {
         </Box>
       </Box>
 
-      {/* Filter dropdown — values match exact API severity strings */}
+      {/* Filter dropdown */}
       <Box sx={{ mb: 3 }}>
         <TextField
           select
@@ -168,10 +167,19 @@ const Alerts = () => {
             return (
               <Card
                 key={alert.id}
+                // ← 3. onClick على الـ Card — لو في machine_id يروح عليها
+                onClick={() => {
+                  if (alert.machine_id) {
+                    navigate(`/machines/${alert.machine_id}`);
+                  }
+                }}
                 sx={{
                   borderRadius: 2,
                   borderLeft: `4px solid ${config.color}`,
                   opacity: alert.acknowledged ? 0.7 : 1,
+                  // ← 4. cursor pointer لو في machine، default لو system alert
+                  cursor: alert.machine_id ? 'pointer' : 'default',
+                  '&:hover': alert.machine_id ? { boxShadow: 3 } : {},
                 }}
               >
                 <CardContent>
@@ -213,7 +221,6 @@ const Alerts = () => {
                       </Typography>
 
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {/* machine_name / asset_id can be null for system alerts */}
                         {alert.asset_id && (
                           <Typography variant="caption" color="text.secondary">
                             {alert.asset_id} — {alert.machine_name}
@@ -230,13 +237,17 @@ const Alerts = () => {
                       </Box>
                     </Box>
 
-                    {/* Acknowledge button — only for unacknowledged */}
+                    {/* Acknowledge button */}
                     {!alert.acknowledged && user?.role !== 'technician' && (
                       <Button
                         variant="outlined"
                         size="small"
                         startIcon={<AcknowledgeIcon />}
-                        onClick={() => handleAcknowledge(alert.id)}
+                        // ← 5. stopPropagation عشان مايفتحش الـ machine لما تضغط Acknowledge
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAcknowledge(alert.id);
+                        }}
                         sx={{ alignSelf: 'center' }}
                       >
                         Acknowledge

@@ -88,24 +88,41 @@ const Header = ({
     navigate('/logout');
   };
 
- const handleNotifClick = (notif: Notification) => {
+const handleNotifClick = (notif: Notification) => {
   if (!notif.read && onMarkRead) {
     onMarkRead(notif.id);
   }
-  if (notif.work_order_id) {
-    handleNotificationsClose();
+
+  handleNotificationsClose();
+
+  if (notif.type === 'work_order' && notif.work_order_id) {
     navigate(`/work-orders/${notif.work_order_id}`);
+  } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && notif.machine_id) {
+    navigate(`/machines/${notif.machine_id}`);
+  } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && !notif.machine_id) {
+    navigate('/alerts');
+  } else if (notif.type === 'predicted_failure' && notif.machine_id) {
+    navigate(`/machines/${notif.machine_id}`);
+  } else if (notif.type === 'predicted_failure' && !notif.machine_id) {
+    navigate('/alerts');
+  } else if (notif.type === 'system') {
+    navigate('/notifications');
+  } else {
+    // fallback لأي type تاني — روح notifications page
+    navigate('/notifications');
   }
 };
 
-  const getSeverityColor = (type: string) => {
-    switch (type) {
-      case 'alert':      return 'error';
-      case 'work_order': return 'primary';
-      case 'system':     return 'info';
-      default:           return 'default';
-    }
-  };
+ const getSeverityColor = (type: string) => {
+  switch (type) {
+    case 'alert':
+    case 'sensor_alert':      return 'error';    // ← أضيفي السطر ده
+    case 'work_order':        return 'primary';
+    case 'predicted_failure': return 'warning';  // ← أضيفي ده كمان
+    case 'system':            return 'info';
+    default:                  return 'default';
+  }
+};
 
   return (
     <AppBar

@@ -389,20 +389,24 @@ const realApi = {
     axiosInstance.get('/settings/asset-types')
       .then((d: any) => normalizeAssetType(d)),
 
-  createAssetType: (data: any) =>
-    axiosInstance.post('/settings/asset-types', {
-      name:           data.name,
-      description:    data.description,
-      industry:       'Manufacturing',
-      organizationId: getCompanyId(),
-    }).then((d: any) => normalizeAssetType(d)),
+ createAssetType: (data: any) =>
+  axiosInstance.post('/settings/asset-types', {
+    name:                data.name,
+    description:         data.description,
+    industry:            data.industry ?? 'Manufacturing',
+    active:              data.active ?? true,
+    maintenanceInterval: data.maintenanceInterval ?? 90,
+    organizationId:      getCompanyId(),  // ← رجّعيه
+  }).then((d: any) => normalizeAssetType(d)),
 
   updateAssetType: (id: number, data: any) =>
-    axiosInstance.put(`/settings/asset-types/${id}`, {
-      name:        data.name,
-      description: data.description,
-      industry:    data.industry ?? 'Manufacturing',
-    }).then((d: any) => normalizeAssetType(d)),
+  axiosInstance.put(`/settings/asset-types/${id}`, {
+    name:                data.name,
+    description:         data.description,
+    industry:            data.industry ?? 'Manufacturing',
+    active:              data.active,
+    maintenanceInterval: data.maintenanceInterval,
+  }).then((d: any) => normalizeAssetType(d)),
 
   deleteAssetType: (id: number) =>
     axiosInstance.delete(`/settings/asset-types/${id}`),
@@ -411,6 +415,9 @@ const realApi = {
   getSensorThresholds: () =>
     axiosInstance.get('/settings/sensor-thresholds')
       .then((d: any) => normalizeSensorThreshold(d)),
+  
+  getSensorTypes: () =>
+  axiosInstance.get('/settings/sensor-types'),
 
   createSensorThreshold: (data: any) =>
     axiosInstance.post('/settings/sensor-thresholds', {
@@ -465,6 +472,8 @@ const realApi = {
 
 export const api = USE_MOCK ? mockApi : realApi as unknown as typeof mockApi & {
   activateInvitedUser: (token: string, password: string) => Promise<any>;
+} & {
+  getSensorTypes: () => Promise<Array<{ id: number; name: string; unit: string }>>;
 };
 
 export default api;
