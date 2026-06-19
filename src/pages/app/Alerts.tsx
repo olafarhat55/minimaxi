@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';   // ← 1. أضفنا useNavigate
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -24,7 +24,6 @@ import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common';
 import type { Alert as AlertType } from '../../types';
 
-// ── Real severity values from backend: critical | high | medium | low ────────
 const severityConfig: Record<string, { color: string; bgcolor: string; icon: typeof ErrorIcon }> = {
   critical: { color: '#f44336', bgcolor: '#ffebee', icon: ErrorIcon },
   high:     { color: '#f44336', bgcolor: '#ffebee', icon: ErrorIcon },
@@ -32,7 +31,6 @@ const severityConfig: Record<string, { color: string; bgcolor: string; icon: typ
   low:      { color: '#2196f3', bgcolor: '#e3f2fd', icon: InfoIcon },
 };
 
-// ── Map UI filter → API query params ─────────────────────────────────────────
 const buildParams = (filter: string): Record<string, string> => {
   switch (filter) {
     case 'unacknowledged': return { acknowledged: 'false' };
@@ -45,17 +43,21 @@ const POLL_INTERVAL = 8000;
 
 const Alerts = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();                  // ← 2. أضفنا navigate
+  const navigate = useNavigate();
   const [loading, setLoading]     = useState(true);
   const [alerts, setAlerts]       = useState<AlertType[]>([]);
   const [allAlerts, setAllAlerts] = useState<AlertType[]>([]);
   const [filter, setFilter]       = useState('all');
 
-  // ── full list once — for header stats ──────────────────────────────────────
   useEffect(() => {
     const fetchAll = () => {
       api.getAlerts()
-        .then((data: AlertType[]) => setAllAlerts(data))
+        .then((data: AlertType[]) => {
+          const sorted = [...data].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          setAllAlerts(sorted);
+        })
         .catch(() => {});
     };
     fetchAll();
@@ -63,12 +65,14 @@ const Alerts = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ── filtered list on every filter change ───────────────────────────────────
   const fetchFiltered = useCallback(async (currentFilter: string, silent = false) => {
     if (!silent) setLoading(true);
     try {
       const data: AlertType[] = await api.getAlerts(buildParams(currentFilter));
-      setAlerts(data);
+      const sorted = [...data].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setAlerts(sorted);
     } catch (err) {
       console.error('Failed to fetch alerts:', err);
     } finally {
@@ -82,7 +86,6 @@ const Alerts = () => {
     return () => clearInterval(interval);
   }, [filter, fetchFiltered]);
 
-  // ── acknowledge ────────────────────────────────────────────────────────────
   const handleAcknowledge = async (alertId: number) => {
     try {
       await api.acknowledgeAlert(alertId, user.name);
@@ -102,14 +105,12 @@ const Alerts = () => {
     }
   };
 
-  // ── stats from full list ───────────────────────────────────────────────────
   const stats = {
     critical:       allAlerts.filter((a) => ['critical', 'high'].includes(a.severity)).length,
     medium:         allAlerts.filter((a) => a.severity === 'medium').length,
     unacknowledged: allAlerts.filter((a) => !a.acknowledged).length,
   };
 
-  // ── skeleton ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Box>
@@ -167,7 +168,6 @@ const Alerts = () => {
             return (
               <Card
                 key={alert.id}
-                // ← 3. onClick على الـ Card — لو في machine_id يروح عليها
                 onClick={() => {
                   if (alert.machine_id) {
                     navigate(`/machines/${alert.machine_id}`);
@@ -177,7 +177,6 @@ const Alerts = () => {
                   borderRadius: 2,
                   borderLeft: `4px solid ${config.color}`,
                   opacity: alert.acknowledged ? 0.7 : 1,
-                  // ← 4. cursor pointer لو في machine، default لو system alert
                   cursor: alert.machine_id ? 'pointer' : 'default',
                   '&:hover': alert.machine_id ? { boxShadow: 3 } : {},
                 }}
@@ -229,26 +228,57 @@ const Alerts = () => {
                         <Typography variant="caption" color="text.secondary">
                           {format(new Date(alert.created_at), 'MMM d, yyyy h:mm a')}
                         </Typography>
-                        {alert.acknowledged && (
-                          <Typography variant="caption" color="success.main">
-                            Acknowledged by {alert.acknowledged_by}
-                          </Typography>
-                        )}
                       </Box>
                     </Box>
 
-                    {/* Acknowledge button */}
-                    {!alert.acknowledged && user?.role !== 'technician' && (
+                    {/* Acknowledge button or badge */}
+                    {alert.acknowledged ? (
+                      <Box sx={{
+                        alignSelf: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        bgcolor: '#f0fdf4',
+                        border: '1px solid #86efac',
+                        borderRadius: 2,
+                        px: 1.5,
+                        py: 0.5,
+                      }}>
+                        <AcknowledgeIcon sx={{ fontSize: 16, color: '#16a34a' }} />
+                        <Typography variant="caption" color="#16a34a" fontWeight={600}>
+                          Acknowledged by {alert.acknowledged_by}
+                        </Typography>
+                      </Box>
+                    ) : user?.role !== 'technician' && (
                       <Button
                         variant="outlined"
                         size="small"
-                        startIcon={<AcknowledgeIcon />}
-                        // ← 5. stopPropagation عشان مايفتحش الـ machine لما تضغط Acknowledge
+                        startIcon={<AcknowledgeIcon sx={{ fontSize: 16 }} />}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAcknowledge(alert.id);
                         }}
-                        sx={{ alignSelf: 'center' }}
+                        sx={{
+                          alignSelf: 'center',
+                          borderRadius: '20px',
+                          borderColor: '#1976d2',
+                          color: '#1976d2',
+                          bgcolor: 'rgba(25, 118, 210, 0.04)',
+                          px: 2,
+                          py: 0.5,
+                          minWidth: 'fit-content',
+                          whiteSpace: 'nowrap',
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          '& .MuiButton-startIcon': {
+                            marginRight: 0.5,
+                            marginLeft: 0,
+                          },
+                          '&:hover': {
+                            bgcolor: 'rgba(25, 118, 210, 0.08)',
+                            borderColor: '#1976d2',
+                          },
+                        }}
                       >
                         Acknowledge
                       </Button>

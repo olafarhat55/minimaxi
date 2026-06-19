@@ -165,12 +165,7 @@ const Dashboard = () => {
     );
   }
 
- console.log("stats:", stats);
-  console.log("healthData:", healthData);
-  console.log("failureTrend:", failureTrend);
-  console.log("trendPeriod:", trendPeriod);
-  console.log("sensorTrends:", sensorTrends);
-  console.log("aiInsights:", aiInsights);
+ 
 
   
 

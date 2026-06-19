@@ -401,9 +401,13 @@ const Reports = () => {
 
         <TableCell align="center">{tech.completed}</TableCell>
 
-        <TableCell align="center">{tech.avg_time} hr</TableCell>
+        <TableCell align="center">
+  {Number(tech.avg_time).toFixed(2)} hr
+</TableCell>
 
-        <TableCell align="center">{tech.total_hours ?? '—'} hr</TableCell>
+<TableCell align="center">
+  {tech.total_hours != null ? Number(tech.total_hours).toFixed(2) : '—'} hr
+</TableCell>
 
         <TableCell align="center">
           <Chip

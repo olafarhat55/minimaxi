@@ -122,7 +122,16 @@ const CreateWorkOrder = () => {
 });
         setSuccess('Work order updated successfully!');
       } else {
-        await api.createWorkOrder({ ...formData, created_by: { id: user.id, name: user.name } });
+        // بعد
+await api.createWorkOrder({
+  machine_id:      formData.machine_id,
+  title:           formData.title,
+  description:     formData.description,
+  priority:        formData.priority,
+  assigned_to:     formData.assigned_to,
+  due_date:        formData.due_date,
+  estimated_hours: formData.estimated_hours,
+});
         setSuccess('Work order created successfully!');
       }
       setTimeout(() => navigate('/work-orders'), 1500);

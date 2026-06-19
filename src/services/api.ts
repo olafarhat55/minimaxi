@@ -221,7 +221,7 @@ const realApi = {
           asset_id:     item.assetId     ?? item.asset_id,
           insight:      item.insight,
           severity:     item.severity,
-          confidence:   item.confidence,
+          confidence: item.confidence > 1 ? item.confidence : Math.round(item.confidence * 100),
         }))
       ),
 
@@ -305,8 +305,22 @@ const realApi = {
       .then((d: any) => normalizeWorkOrder(d));
   },
 
-  deleteWorkOrder: (id: string | number) =>
+ deleteWorkOrder: (id: string | number) =>
     axiosInstance.delete(`/work-orders/${id}`),
+
+  convertIssueToWorkOrder: (issueId: number, data: {
+    assignedToUserId?: number;
+    priority?: string;
+    dueDate?: string;
+    estimatedHours?: number;
+  }) =>
+    axiosInstance.post(`/work-orders/from-issue/${issueId}`, {
+      createdByUserId:  getUserId(),
+      assignedToUserId: data.assignedToUserId,
+      priority:         data.priority ?? 'medium',
+      dueDate:          data.dueDate,
+      estimatedHours:   data.estimatedHours,
+    }).then((d: any) => normalizeWorkOrder(d)),
 
   addWorkOrderNote: (id: string | number, note: any) => {
     const userId = getUserId();
@@ -476,4 +490,7 @@ export const api = USE_MOCK ? mockApi : realApi as unknown as typeof mockApi & {
   getSensorTypes: () => Promise<Array<{ id: number; name: string; unit: string }>>;
 };
 
+
+
 export default api;
+

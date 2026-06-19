@@ -1,14 +1,23 @@
-import { Card, CardContent, Typography, Box, Chip, LinearProgress, Button, Stack } from '@mui/material';
+import { useState } from 'react';
+import {
+  Card, CardContent, Typography, Box, Chip, LinearProgress,
+  Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, MenuItem, CircularProgress, Autocomplete, Alert,
+} from '@mui/material';
 import type { SvgIconComponent } from '@mui/icons-material';
 import {
   Psychology as AIIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
   ArrowForward as ArrowForwardIcon,
+  AddTask as AddTaskIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useThemeMode } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { isEngineer } from '../../utils/permissions';
 import type { AIInsight } from '../../types';
+import { api } from '../../services/api';
 
 interface SeverityConfig {
   color: string;
@@ -51,143 +60,288 @@ interface AIInsightCardProps {
   maxVisible?: number;
 }
 
+interface ConvertForm {
+  priority: string;
+  dueDate: string;
+  estimatedHours: string;
+  assignedToUserId?: number;
+}
+
 const severityOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 };
 
 const AIInsightCard = ({ insights, maxVisible }: AIInsightCardProps) => {
-  const navigate = useNavigate();
-  const { isDark } = useThemeMode();
+  const navigate    = useNavigate();
+  const { isDark }  = useThemeMode();
+  const { user }    = useAuth();
+  const canCreateWO = isEngineer(user);
 
-  const sortedInsights = [...insights].sort(
+  const [openModal, setOpenModal]       = useState(false);
+  const [selectedInsight, setSelected]  = useState<AIInsight | null>(null);
+  const [submitting, setSubmitting]     = useState(false);
+  const [convertedIds, setConvertedIds] = useState<Set<number>>(new Set());
+  const [technicians, setTechnicians]   = useState<{ id: number; name: string }[]>([]);
+  const [errorMsg, setErrorMsg]         = useState('');
+  const [form, setForm] = useState<ConvertForm>({
+    priority: 'medium',
+    dueDate: '',
+    estimatedHours: '',
+    assignedToUserId: undefined,
+  });
+
+  const sortedInsights  = [...insights].sort(
     (a, b) => (severityOrder[a.severity] ?? 3) - (severityOrder[b.severity] ?? 3),
   );
   const visibleInsights = maxVisible ? sortedInsights.slice(0, maxVisible) : sortedInsights;
-  const hasMore = maxVisible !== undefined && insights.length > maxVisible;
 
-  const handleViewMachine = (machineId: number) => {
-    navigate(`/machines/${machineId}`);
+  const handleViewMachine = (machineId: number) => navigate(`/machines/${machineId}`);
+
+  const handleOpenModal = async (insight: AIInsight) => {
+    setSelected(insight);
+    setErrorMsg('');
+    setForm({ priority: 'medium', dueDate: '', estimatedHours: '', assignedToUserId: undefined });
+    setOpenModal(true);
+    try {
+      const users = await api.getUsers();
+      const ul = Array.isArray(users) ? users : (users as any)?.content ?? [];
+      setTechnicians(
+        ul
+          .filter((u: any) => u.role === 'technician')
+          .map((u: any) => ({ id: u.id, name: u.name })),
+      );
+    } catch { /* ignore */ }
   };
 
+  const handleConvert = async () => {
+  if (!selectedInsight) return;
+  const currentInsight = selectedInsight; // ← save locally
+  setSubmitting(true);
+  setErrorMsg('');
+  try {
+    await (api as any).convertIssueToWorkOrder(currentInsight.id, {
+      priority:         form.priority,
+      dueDate:          form.dueDate || undefined,
+      estimatedHours:   form.estimatedHours ? Number(form.estimatedHours) : undefined,
+      assignedToUserId: form.assignedToUserId,
+    });
+    setConvertedIds(prev => new Set(prev).add(currentInsight.id));
+    setOpenModal(false);
+  } catch (err: any) {
+    const msg = err?.message ?? err?.error ?? err?.detail ?? '';
+    if (msg.toLowerCase().includes('already converted') || msg.toLowerCase().includes('already')) {
+      setConvertedIds(prev => new Set(prev).add(currentInsight.id));
+      setOpenModal(false);
+    } else {
+      setErrorMsg(msg || 'Failed to create work order');
+    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
   return (
-    <Card
-      elevation={0}
-      sx={{
-        borderRadius: 2,
-      }}
-    >
-      <CardContent sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
+    <>
+      <Card elevation={0} sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ p: 3 }}>
+
+          {/* Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+            <Box sx={{
+              width: 36, height: 36, borderRadius: 2,
               bgcolor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <AIIcon sx={{ color: '#3B82F6', fontSize: 20 }} />
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <AIIcon sx={{ color: '#3B82F6', fontSize: 20 }} />
+            </Box>
+            <Typography variant="h6" fontWeight={600}>AI Insights</Typography>
+            <Chip
+              label="AI-Powered" size="small"
+              sx={{
+                ml: 'auto',
+                bgcolor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE',
+                color: '#3B82F6', fontWeight: 600, fontSize: '0.7rem',
+              }}
+            />
           </Box>
-          <Typography variant="h6" fontWeight={600}>
-            AI Insights
-          </Typography>
-          <Chip
-            label="AI-Powered"
-            size="small"
-            sx={{
-              ml: 'auto',
-              bgcolor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE',
-              color: '#3B82F6',
-              fontWeight: 600,
-              fontSize: '0.7rem',
-            }}
-          />
-        </Box>
 
-        {/* Insights stack */}
-        <Stack spacing={2}>
-          {visibleInsights.map((insight) => {
-            const config = severityConfig[insight.severity] || severityConfig.info;
-            const SeverityIcon = config.icon;
+          {/* Insights stack */}
+          <Stack spacing={2}>
+            {visibleInsights.map((insight) => {
+              const config       = severityConfig[insight.severity] || severityConfig.info;
+              const SeverityIcon = config.icon;
+              const isConverted  = convertedIds.has(insight.id);
 
-            return (
-              <Box
-                key={insight.id}
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: isDark ? config.bgcolorDark : config.bgcolorLight,
-                  border: `1px solid ${isDark ? config.borderDark : config.borderLight}`,
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 2,
-                }}
-              >
-                {/* Severity icon */}
-                <SeverityIcon sx={{ color: config.color, fontSize: 22, flexShrink: 0, mt: 0.25 }} />
-
-                {/* Main content */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ color: config.color }}>
-                      {insight.asset_id}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {insight.machine_name}
-                    </Typography>
-                  </Box>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5, mb: 1.5 }}>
-                    {insight.insight}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                      Confidence
-                    </Typography>
-                    <LinearProgress
-                      variant="determinate"
-                      value={insight.confidence}
-                      sx={{
-                        flex: 1,
-                        height: 5,
-                        borderRadius: 3,
-                        bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                        '& .MuiLinearProgress-bar': { bgcolor: config.color, borderRadius: 3 },
-                      }}
-                    />
-                    <Typography variant="caption" fontWeight={600} sx={{ flexShrink: 0 }}>
-                      {insight.confidence}%
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* View button */}
-                <Button
-                  size="small"
-                  variant="outlined"
-                  endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
-                  onClick={() => handleViewMachine(insight.machine_id)}
+              return (
+                <Box
+                  key={insight.id}
                   sx={{
-                    flexShrink: 0,
-                    color: config.color,
-                    borderColor: `${config.color}60`,
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                    '&:hover': { borderColor: config.color, bgcolor: `${config.color}10` },
+                    p: 2, borderRadius: 2,
+                    bgcolor: isDark ? config.bgcolorDark : config.bgcolorLight,
+                    border: `1px solid ${isDark ? config.borderDark : config.borderLight}`,
+                    display: 'flex', alignItems: 'flex-start', gap: 2,
                   }}
                 >
-                  View
-                </Button>
-              </Box>
-            );
-          })}
-        </Stack>
+                  <SeverityIcon sx={{ color: config.color, fontSize: 22, flexShrink: 0, mt: 0.25 }} />
 
-      </CardContent>
-    </Card>
+                  {/* Content */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ color: config.color }}>
+                        {insight.asset_id}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {insight.machine_name}
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5, mb: 1.5 }}>
+                      {insight.insight}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                        Confidence
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={insight.confidence > 1
+                          ? insight.confidence
+                          : Math.round(insight.confidence * 100)}
+                        sx={{
+                          flex: 1, height: 5, borderRadius: 3,
+                          bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                          '& .MuiLinearProgress-bar': { bgcolor: config.color, borderRadius: 3 },
+                        }}
+                      />
+                      <Typography variant="caption" fontWeight={600} sx={{ flexShrink: 0 }}>
+                        {insight.confidence > 1
+                          ? insight.confidence
+                          : Math.round(insight.confidence * 100)}%
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Buttons */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                    <Button
+                      size="small" variant="outlined"
+                      endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
+                      onClick={() => handleViewMachine(insight.machine_id)}
+                      sx={{
+                        color: config.color, borderColor: `${config.color}60`,
+                        fontWeight: 600, fontSize: '0.75rem',
+                        '&:hover': { borderColor: config.color, bgcolor: `${config.color}10` },
+                      }}
+                    >
+                      View
+                    </Button>
+
+                    {canCreateWO && (
+                      <Button
+                        size="small" variant="contained"
+                        startIcon={<AddTaskIcon sx={{ fontSize: '14px !important' }} />}
+                        disabled={isConverted}
+                        onClick={() => handleOpenModal(insight)}
+                        sx={{
+                          fontWeight: 600, fontSize: '0.75rem',
+                          bgcolor: isConverted ? '#94a3b8' : config.color,
+                          '&:hover': { bgcolor: config.color, opacity: 0.9 },
+                          '&.Mui-disabled': { bgcolor: '#94a3b8', color: '#fff' },
+                        }}
+                      >
+                        {isConverted ? 'Created' : 'Create WO'}
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+
+        </CardContent>
+      </Card>
+
+      {/* ── Convert to WO Modal ─────────────────────────────────────────────── */}
+      <Dialog
+        open={openModal}
+        onClose={() => !submitting && setOpenModal(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>
+          Create Work Order
+          {selectedInsight && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {selectedInsight.asset_id} — {selectedInsight.machine_name}
+            </Typography>
+          )}
+        </DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+
+            {/* Error message */}
+            {errorMsg && (
+              <Alert severity="error" onClose={() => setErrorMsg('')}>
+                {errorMsg}
+              </Alert>
+            )}
+
+            {/* Priority */}
+            <TextField
+              select fullWidth label="Priority"
+              value={form.priority}
+              onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}
+            >
+              {['low', 'medium', 'high', 'critical'].map(p => (
+                <MenuItem key={p} value={p} sx={{ textTransform: 'capitalize' }}>{p}</MenuItem>
+              ))}
+            </TextField>
+
+            {/* Assign to Technician */}
+            <Autocomplete
+              options={technicians}
+              getOptionLabel={o => o.name}
+              noOptionsText="No technicians found"
+              onChange={(_e, v) => setForm(p => ({ ...p, assignedToUserId: v?.id }))}
+              renderInput={params => (
+                <TextField {...params} fullWidth label="Assign to Technician (optional)" />
+              )}
+            />
+
+            {/* Due Date */}
+            <TextField
+              fullWidth type="date" label="Due Date"
+              InputLabelProps={{ shrink: true }}
+              value={form.dueDate}
+              onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))}
+            />
+
+            {/* Estimated Hours */}
+            <TextField
+              fullWidth type="number" label="Estimated Hours"
+              inputProps={{ min: 0, step: 0.5 }}
+              value={form.estimatedHours}
+              onChange={e => setForm(p => ({ ...p, estimatedHours: e.target.value }))}
+            />
+
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setOpenModal(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConvert}
+            disabled={submitting}
+            startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <AddTaskIcon />}
+          >
+            {submitting ? 'Creating...' : 'Create Work Order'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 
