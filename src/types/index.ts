@@ -128,6 +128,8 @@ export interface WorkOrder {
   actual_hours: number | null;
   parts_needed: string[];
   notes: WorkOrderNote[];
+  isRated?: boolean;
+is_rated?: boolean;
 }
 
 export interface WorkOrderFilters {
@@ -257,6 +259,30 @@ export interface ReportsData {
   monthly_cost: MonthlyCost[];
   accuracy_trend: AccuracyTrend[];
   technician_performance: TechnicianPerformance[];
+  mttr_mtbf?: MttrMtbf;
+  top_problem_machines?: TopProblemMachine[];
+  top_spare_parts?: TopSparePart[];
+}
+
+// ============ REPORTS — NEW SECTIONS ============
+
+export interface MttrMtbf {
+  mttr_hours: number;
+  mtbf_hours: number;
+}
+
+export interface TopProblemMachine {
+  machine_id: number;
+  machine_name: string;
+  work_order_count: number;
+  downtime_hours: number;
+  score: number; // 0-100, للترتيب/الـ progress bar بس — متعرضوش الرقم الخام
+}
+
+export interface TopSparePart {
+  name: string;
+  usage_count: number;
+  total_cost: number; // بالـ $ كامل، مش $K
 }
 
 // ============ ACCESS REQUESTS ============

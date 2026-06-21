@@ -95,9 +95,17 @@ const handleNotifClick = (notif: Notification) => {
 
   handleNotificationsClose();
 
-  if (notif.type === 'work_order' && notif.work_order_id) {
-    navigate(`/work-orders/${notif.work_order_id}`);
-  } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && notif.machine_id) {
+ if (
+  (notif.type === 'work_order' || notif.type === 'wo_status_changed' || notif.type === 'new_work_order') &&
+  notif.work_order_id
+) {
+  const isRatingNotif =
+    notif.title?.toLowerCase().includes('completed') ||
+    notif.title?.toLowerCase().includes('rate');
+  navigate(`/work-orders/${notif.work_order_id}`, {
+    state: { openRating: isRatingNotif },
+  });
+}else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && notif.machine_id) {
     navigate(`/machines/${notif.machine_id}`);
   } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && !notif.machine_id) {
     navigate('/alerts');

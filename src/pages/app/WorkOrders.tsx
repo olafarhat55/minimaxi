@@ -277,31 +277,29 @@ const WorkOrders = () => {
         />
       ) : (
         <>
-          <TableContainer component={Paper} sx={{ borderRadius: 2, mb: 2 }}>
-            <Table>
+         <TableContainer component={Paper} sx={{ borderRadius: 2, mb: 2, overflow: 'hidden' }}>
+            <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
               <TableHead>
-                <TableRow
-                  sx={{
-                    bgcolor: isDark ? '#283444' : '#f5f5f5',
-                    '& th': {
-                      color: isDark ? '#e5e5e5' : 'inherit',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      borderBottom: isDark ? '1px solid #404040' : '1px solid #e0e0e0',
-                      whiteSpace: 'nowrap',
-                    },
-                  }}
-                >
-                  <TableCell>WO Number</TableCell>
-                  <TableCell>Asset</TableCell>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Priority</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Assigned To</TableCell>
-                  <TableCell>Due Date</TableCell>
-                  <TableCell align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
+  <TableRow sx={{
+    bgcolor: isDark ? '#283444' : '#f5f5f5',
+    '& th': {
+      color: isDark ? '#e5e5e5' : 'inherit',
+      fontWeight: 600,
+      fontSize: '0.85rem',
+      borderBottom: isDark ? '1px solid #404040' : '1px solid #e0e0e0',
+      whiteSpace: 'nowrap',
+      py: 1,
+    },
+  }}>
+  <TableCell sx={{ width: '10%' }}>WO#</TableCell>
+<TableCell sx={{ width: '16%' }}>Asset</TableCell>
+<TableCell sx={{ width: '24%' }}>Title</TableCell>
+<TableCell sx={{ width: '11%' }}>Status</TableCell>
+<TableCell sx={{ width: '13%' }}>Assigned To</TableCell>
+<TableCell sx={{ width: '12%' }}>Due Date</TableCell>
+<TableCell align="center" sx={{ width: '14%' }}>Actions</TableCell>
+  </TableRow>
+</TableHead>
               <TableBody>
                 {paginatedWorkOrders.map((wo) => {
                   const isCancelled = wo.status === 'cancelled' || wo.status === 'closed';
@@ -318,24 +316,7 @@ const WorkOrders = () => {
                       <TableCell sx={{ maxWidth: 240 }}>
                         <Typography variant="body2" noWrap>{wo.title}</Typography>
                       </TableCell>
-                      <TableCell>
-                        <Box
-                          sx={{
-                            display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                            px: 1, py: 0.4, borderRadius: 1,
-                            bgcolor: `${priorityColors[wo.priority] ?? '#9e9e9e'}18`,
-                            color: priorityColors[wo.priority] ?? '#9e9e9e',
-                            fontSize: '0.75rem', fontWeight: 600,
-                            textTransform: 'capitalize', whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {wo.priority === 'critical' && '🔴'}
-                          {wo.priority === 'high'     && '🟠'}
-                          {wo.priority === 'medium'   && '🟡'}
-                          {wo.priority === 'low'      && '🟢'}
-                          {' '}{wo.priority}
-                        </Box>
-                      </TableCell>
+                      
                       <TableCell>
                         <StatusBadge status={wo.status} />
                       </TableCell>
@@ -349,7 +330,7 @@ const WorkOrders = () => {
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         {wo.due_date ? format(new Date(wo.due_date), 'MMM d, yyyy') : '—'}
                       </TableCell>
-                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                     <TableCell align="center" sx={{ whiteSpace: 'nowrap', minWidth: 130 }}>
                         {/* View — everyone */}
                         <Tooltip title="View Details">
                           <IconButton

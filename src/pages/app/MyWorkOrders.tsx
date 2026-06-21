@@ -54,6 +54,7 @@ const priorityConfig: Record<string, { color: string; bg: string; label: string 
 interface SparePart {
   name: string;
   quantity: number;
+  cost: number;
 }
 
 interface CompleteFormData {
@@ -91,7 +92,7 @@ const MyWorkOrders = () => {
 
   const [completeWO, setCompleteWO] = useState<WorkOrder | null>(null);
   const [completeForm, setCompleteForm] = useState<CompleteFormData>(defaultCompleteForm());
-  const [partInput, setPartInput] = useState({ name: '', quantity: '1' });
+  const [partInput, setPartInput] = useState({ name: '', quantity: '1', cost: '0' });
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
   const [actionTakenError, setActionTakenError] = useState('');
@@ -185,24 +186,25 @@ const MyWorkOrders = () => {
   const openCompleteDialog = (wo: WorkOrder) => {
     setCompleteWO(wo);
     setCompleteForm(defaultCompleteForm());
-    setPartInput({ name: '', quantity: '1' });
+    setPartInput({ name: '', quantity: '1', cost: '0' });
     setCompleteError('');
     setActionTakenError('');
   };
 
   const handleAddPart = () => {
-    const name = partInput.name.trim();
-    const quantity = parseInt(partInput.quantity) || 1;
+  const name = partInput.name.trim();
+  const quantity = parseInt(partInput.quantity) || 1;
+  const cost = parseFloat(partInput.cost) || 0;
 
-    if (!name) return;
+  if (!name) return;
 
-    setCompleteForm((prev) => ({
-      ...prev,
-      spareParts: [...prev.spareParts, { name, quantity }],
-    }));
+  setCompleteForm((prev) => ({
+    ...prev,
+    spareParts: [...prev.spareParts, { name, quantity, cost }],
+  }));
 
-    setPartInput({ name: '', quantity: '1' });
-  };
+  setPartInput({ name: '', quantity: '1', cost: '0' });
+};
 
   const handleRemovePart = (index: number) => {
     setCompleteForm((prev) => ({
@@ -781,6 +783,16 @@ const MyWorkOrders = () => {
                   sx={{ width: 90 }}
                   disabled={completing}
                 />
+                <TextField
+  size="small"
+  label="Unit Cost $"
+  type="number"
+  inputProps={{ min: 0, step: 0.01 }}
+  value={partInput.cost}
+  onChange={(e) => setPartInput((p) => ({ ...p, cost: e.target.value }))}
+  sx={{ width: 110 }}
+  disabled={completing}
+/>
                 <Button
                   variant="outlined"
                   onClick={handleAddPart}

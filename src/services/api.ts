@@ -330,6 +330,12 @@ const realApi = {
     });
   },
 
+  completeWorkOrder: (id: string | number, payload: any) =>
+  axiosInstance.post(`/work-orders/${id}/complete`, payload),
+
+rateWorkOrder: (id: string | number, payload: any) =>
+  axiosInstance.post(`/work-orders/${id}/rate`, payload),
+
   // Alerts
   getAlerts: (filters?: any) =>
     axiosInstance.get('/alerts', { params: { ...filters, companyId: getCompanyId() } }),
@@ -359,7 +365,14 @@ const realApi = {
 
   // Notifications
   getNotifications: () =>
-    axiosInstance.get('/notifications', { params: { userId: getUserId() } }),
+  axiosInstance.get('/notifications', { params: { userId: getUserId() } })
+    .then((data: any) =>
+      (Array.isArray(data) ? data : []).map((n: any) => ({
+        ...n,
+        work_order_id: n.work_order_id ?? n.workOrderId ?? null,
+        machine_id:    n.machine_id    ?? n.machineId   ?? null,
+      }))
+    ),
   markNotificationRead: (id: string | number) =>
     axiosInstance.put(`/notifications/${id}/read`),
   markAllNotificationsRead: () =>
@@ -488,6 +501,9 @@ export const api = USE_MOCK ? mockApi : realApi as unknown as typeof mockApi & {
   activateInvitedUser: (token: string, password: string) => Promise<any>;
 } & {
   getSensorTypes: () => Promise<Array<{ id: number; name: string; unit: string }>>;
+} & {
+  completeWorkOrder: (id: string | number, payload: any) => Promise<any>;
+  rateWorkOrder: (id: string | number, payload: any) => Promise<any>;
 };
 
 

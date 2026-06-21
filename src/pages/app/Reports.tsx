@@ -16,6 +16,7 @@ import {
   Skeleton,
   Rating,
   Chip,
+  LinearProgress,
 } from '@mui/material';
 import { Alert } from '@mui/material';
 import {
@@ -25,6 +26,9 @@ import {
   Savings as SavingsIcon,
   Build as MaintenanceIcon,
   Refresh as RefreshIcon,
+  Timer as MttrIcon,
+  Schedule as MtbfIcon,
+  Inventory2 as PartsIcon,
 } from '@mui/icons-material';
 import {
   BarChart, Bar,
@@ -117,9 +121,19 @@ const Reports = () => {
               <Skeleton variant="rounded" height={120} />
             </Grid>
           ))}
+          {[1, 2].map((i) => (
+            <Grid size={{ xs: 12, sm: 6 }} key={`mttr-${i}`}>
+              <Skeleton variant="rounded" height={110} />
+            </Grid>
+          ))}
           {[1, 2, 3, 4].map((i) => (
             <Grid size={{ xs: 12, md: 6 }} key={i}>
               <Skeleton variant="rounded" height={320} />
+            </Grid>
+          ))}
+          {[1, 2].map((i) => (
+            <Grid size={{ xs: 12, md: 6 }} key={`extra-${i}`}>
+              <Skeleton variant="rounded" height={280} />
             </Grid>
           ))}
           <Grid size={{ xs: 12 }}>
@@ -140,6 +154,17 @@ const Reports = () => {
 
   // Technician rows
   const technicianRows = data?.technician_performance ?? [];
+
+  // MTTR / MTBF
+  const mttr = data?.mttr_mtbf?.mttr_hours ?? 0;
+  const mtbf = data?.mttr_mtbf?.mtbf_hours ?? 0;
+
+  // Top problem machines (score used only for ranking / bar width, never shown raw)
+  const topProblemMachines = data?.top_problem_machines ?? [];
+  const maxScore = Math.max(...topProblemMachines.map((m) => m.score), 1);
+
+  // Top spare parts
+  const topSpareParts = data?.top_spare_parts ?? [];
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -208,6 +233,48 @@ const Reports = () => {
                 </Box>
                 <Typography variant="h4" fontWeight={700} color="#a855f7">
                   {data?.preventive_vs_reactive?.preventive ?? 0}%
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* ── MTTR / MTBF ──────────────────────────────────────────────── */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Card sx={{ borderRadius: 2, bgcolor: isDark ? '#2d1208' : '#fff0e6' }} elevation={0}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <MttrIcon sx={{ color: '#f97316' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Mean Time To Repair (MTTR)
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700} color="#f97316">
+                  {mttr.toFixed(1)}h
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Lower is better — faster repairs
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Card sx={{ borderRadius: 2, bgcolor: isDark ? '#0d2818' : '#e8f5e9' }} elevation={0}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <MtbfIcon sx={{ color: '#22c55e' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Mean Time Between Failures (MTBF)
+                  </Typography>
+                </Box>
+                <Typography variant="h4" fontWeight={700} color="#22c55e">
+                  {mtbf.toFixed(1)}h
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Higher is better — failures are rarer
                 </Typography>
               </CardContent>
             </Card>
@@ -348,6 +415,107 @@ const Reports = () => {
                     </LineChart>
                   </ResponsiveContainer>
                 </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* ── Row 3: Top Problem Machines + Top Spare Parts ─────────────── */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+
+          {/* Top Problem Machines — score is used only to size the bar, never shown raw */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={cardSx} elevation={0}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Top Problem Machines
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Machines that need the most attention
+                </Typography>
+                {topProblemMachines.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                    No data available yet.
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {topProblemMachines.map((m) => (
+                      <Box key={m.machine_id}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.5 }}>
+                          <Typography variant="body2" fontWeight={600}>{m.machine_name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {m.work_order_count} WOs · {m.downtime_hours.toFixed(1)}h downtime
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={(m.score / maxScore) * 100}
+                          sx={{
+                            height: 8, borderRadius: 4,
+                            bgcolor: isDark ? '#334155' : '#e2e8f0',
+                            '& .MuiLinearProgress-bar': { bgcolor: '#f43f5e', borderRadius: 4 },
+                          }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Top Spare Parts */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={cardSx} elevation={0}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <PartsIcon sx={{ color: '#a855f7' }} />
+                  <Typography variant="h6" fontWeight={600}>Top Spare Parts Usage</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Most frequently used parts, for inventory planning
+                </Typography>
+                <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{
+                        bgcolor: isDark ? '#283444' : '#f5f5f5',
+                        '& th': {
+                          color: isDark ? '#e5e5e5' : 'inherit',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          borderBottom: isDark ? '1px solid #404040' : '1px solid #e0e0e0',
+                        },
+                      }}>
+                        <TableCell>Part</TableCell>
+                        <TableCell align="center">Used</TableCell>
+                        <TableCell align="right">Total Cost</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {topSpareParts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            No spare-parts data available yet.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        topSpareParts.map((p, i) => (
+                          <TableRow key={i} sx={{
+                            '&:last-child td': { border: 0 },
+                            '& td': { borderBottom: isDark ? '1px solid #334155' : '1px solid #f1f5f9' },
+                          }}>
+                            <TableCell>
+                              <Typography fontWeight={600}>{p.name}</Typography>
+                            </TableCell>
+                            <TableCell align="center">{p.usage_count}</TableCell>
+                            <TableCell align="right">${p.total_cost.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </CardContent>
             </Card>
           </Grid>

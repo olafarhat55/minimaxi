@@ -116,8 +116,16 @@ const handleNotificationClick = async (notif: Notification) => {
     }
   }
 
-  if (notif.type === 'work_order' && notif.work_order_id) {
-    navigate(`/work-orders/${notif.work_order_id}`);
+  if (
+    (notif.type === 'work_order' || notif.type === 'wo_status_changed' || notif.type === 'new_work_order') &&
+    notif.work_order_id
+  ) {
+    const isRatingNotif =
+      notif.title?.toLowerCase().includes('completed') ||
+      notif.title?.toLowerCase().includes('rate');
+    navigate(`/work-orders/${notif.work_order_id}`, {
+      state: { openRating: isRatingNotif },
+    });
   } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && notif.machine_id) {
     navigate(`/machines/${notif.machine_id}`);
   } else if ((notif.type === 'alert' || notif.type === 'sensor_alert') && !notif.machine_id) {
@@ -126,8 +134,13 @@ const handleNotificationClick = async (notif: Notification) => {
     navigate(`/machines/${notif.machine_id}`);
   } else if (notif.type === 'predicted_failure' && !notif.machine_id) {
     navigate('/alerts');
+  } else if (notif.work_order_id) {
+    // fallback: أي type تاني عنده work_order_id → روح للـ work order
+    navigate(`/work-orders/${notif.work_order_id}`);
+  } else if (notif.machine_id) {
+    // fallback: أي type تاني عنده machine_id → روح للـ machine
+    navigate(`/machines/${notif.machine_id}`);
   } else {
-    // fallback لأي type تاني
     navigate('/notifications');
   }
 };
