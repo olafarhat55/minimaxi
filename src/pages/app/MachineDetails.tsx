@@ -221,7 +221,7 @@ const MachineDetails = () => {
     ['Model',             machine.model],
     ['Installation Date', machine.installation_date],
   ]
-  .filter(([, val]) => val)
+  .filter(([, val]) => val != null && val !== '')
   .map(([label, val]) => (
     <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
