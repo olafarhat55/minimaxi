@@ -260,23 +260,28 @@ const UserManagement = () => {
   };
 
   const handleInviteSubmit = async () => {
-    if (!validateInvite()) return;
-    try {
-      await api.inviteUser({
-        name:           inviteData.name,
-        email:          inviteData.email,
-        role:           inviteData.role,
-        organizationId: getCompanyId(),
-      });
-      setInviteDialogOpen(false);
-      setInviteData({ name: '', email: '', role: 'TECHNICIAN' });
-      showSnackbar('Invitation sent successfully.');
-    } catch (error) {
-      console.error('Failed to invite user:', error);
-      showSnackbar('Failed to send invitation.', 'error');
-    }
-  };
-
+  if (!validateInvite()) return;
+  try {
+    await api.inviteUser({
+      name:           inviteData.name,
+      email:          inviteData.email,
+      role:           inviteData.role,
+      organizationId: getCompanyId(),
+    });
+    setInviteDialogOpen(false);
+    setInviteData({ name: '', email: '', role: 'TECHNICIAN' });
+    
+    // ✅ أضيفي الـ 3 سطور دول
+    const data = await api.getUsers();
+    const list = Array.isArray(data) ? data : [];
+    setUsers(resortUsers(list.map(normalizeUser)));
+    
+    showSnackbar('Invitation sent successfully.');
+  } catch (error) {
+    console.error('Failed to invite user:', error);
+    showSnackbar('Failed to send invitation.', 'error');
+  }
+};
   // ── CSV Import ────────────────────────────────────────────────────────────
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

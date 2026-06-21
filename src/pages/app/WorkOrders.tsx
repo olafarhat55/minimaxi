@@ -285,7 +285,7 @@ const WorkOrders = () => {
     '& th': {
       color: isDark ? '#e5e5e5' : 'inherit',
       fontWeight: 600,
-      fontSize: '0.85rem',
+      fontSize: '0.875rem',
       borderBottom: isDark ? '1px solid #404040' : '1px solid #e0e0e0',
       whiteSpace: 'nowrap',
       py: 1,

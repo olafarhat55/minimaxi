@@ -214,23 +214,25 @@ const MachineDetails = () => {
           <Card sx={{ mb: 3, borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>Asset Information</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {[
-                  ['Serial Number',     machine.serial_number],
-                  ['Manufacturer',      machine.manufacturer],
-                  ['Model',             machine.model],
-                  ['Installation Date', machine.installation_date],
-                ].map(([label, val]) => (
-                  <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">{label}</Typography>
-                    <Typography variant="body2" fontWeight={500}>{val}</Typography>
-                  </Box>
-                ))}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Criticality</Typography>
-                  <Chip label={machine.criticality} size="small" sx={{ textTransform: 'capitalize' }} />
-                </Box>
-              </Box>
+             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+  {[
+    ['Serial Number',     machine.serial_number],
+    ['Manufacturer',      machine.manufacturer],
+    ['Model',             machine.model],
+    ['Installation Date', machine.installation_date],
+  ]
+  .filter(([, val]) => val)
+  .map(([label, val]) => (
+    <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="body2" fontWeight={500}>{val}</Typography>
+    </Box>
+  ))}
+  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+    <Typography variant="body2" color="text.secondary">Criticality</Typography>
+    <Chip label={machine.criticality} size="small" sx={{ textTransform: 'capitalize' }} />
+  </Box>
+</Box>
             </CardContent>
           </Card>
 
