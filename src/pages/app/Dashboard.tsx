@@ -3,8 +3,6 @@ import {
   Box,
   Grid,
   Typography,
-  TextField,
-  MenuItem,
   Button,
   Skeleton,
   Alert,
@@ -17,15 +15,13 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { api } from '../../services/api';
-import { connectSocket, disconnectSocket } from '../../services/socket';
 import {
   StatCard,
   HealthPieChart,
   TrendLineChart,
   AIInsightCard,
-  SensorTrendsChart,
 } from '../../components/dashboard';
-import type { DashboardStats, HealthDistributionItem, FailureTrendItem, SensorTrendItem, AIInsight } from '../../types';
+import type { DashboardStats, HealthDistributionItem, FailureTrendItem, AIInsight } from '../../types';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -34,35 +30,26 @@ const Dashboard = () => {
   const [healthData, setHealthData] = useState<HealthDistributionItem[]>([]);
   const [failureTrend, setFailureTrend] = useState<FailureTrendItem[]>([]);
   const [trendPeriod, setTrendPeriod] = useState('monthly');
-  const [sensorTrends, setSensorTrends] = useState<SensorTrendItem[]>([]);
   const [aiInsights, setAIInsights] = useState<AIInsight[]>([]);
-  const [lastUpdated, setLastUpdated] = useState('0s ago');
- 
-  // retryCount increments to force a re-fetch on manual retry
   const [retryCount, setRetryCount] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Use allSettled so a single failing endpoint doesn't blank the whole
-      // dashboard — each section renders with whatever data resolved.
-      const [statsData, health, trend, sensors, insights] = await Promise.allSettled([
+      const [statsData, health, trend, insights] = await Promise.allSettled([
         api.getDashboardStats(),
         api.getHealthDistribution(),
         api.getFailureTrend('monthly'),
-        api.getSensorTrends(),
         api.getAIInsights(),
       ]);
+
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (health.status === 'fulfilled') setHealthData(health.value);
       if (trend.status === 'fulfilled') setFailureTrend(trend.value);
-      if (sensors.status === 'fulfilled') setSensorTrends(sensors.value);
       if (insights.status === 'fulfilled') setAIInsights(insights.value);
 
-      // Only surface a blocking error if every endpoint failed; partial
-      // failures load silently with the sections that succeeded.
-      const results = [statsData, health, trend, sensors, insights];
+      const results = [statsData, health, trend, insights];
       if (results.every((r) => r.status === 'rejected')) {
         setError('Failed to load dashboard data. Please check your connection and try again.');
       }
@@ -74,37 +61,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-
-    const socket = connectSocket();
-
-    socket.on('machine_update', (data: any) => {
-      setSensorTrends((prev) => {
-        const newData = [...prev];
-        if (newData.length > 10) newData.shift();
-        newData.push({
-          time: new Date().toLocaleTimeString(),
-          temperature: data.sensors.temperature,
-          vibration: data.sensors.vibration,
-          pressure: data.sensors.pressure,
-        });
-        return newData;
-      });
-      setLastUpdated('0s ago');
-    });
-
-    const interval = setInterval(() => {
-      setLastUpdated((prev) => {
-        const seconds = parseInt(prev) || 0;
-        return `${seconds + 3}s ago`;
-      });
-    }, 3000);
-
-    return () => {
-      disconnectSocket();
-      clearInterval(interval);
-    };
   }, [fetchDashboardData]);
-
 
   const handleTrendPeriodChange = async (newPeriod: string) => {
     setTrendPeriod(newPeriod);
@@ -157,26 +114,19 @@ const Dashboard = () => {
           <Grid size={{ xs: 12 }}>
             <Skeleton variant="rounded" height={260} />
           </Grid>
-          <Grid size={{ xs: 12 }}>
-            <Skeleton variant="rounded" height={400} />
-          </Grid>
         </Grid>
       </Box>
     );
   }
 
- 
-
-  
-
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-  <Typography variant="h5" fontWeight={700}>
-    Dashboard
-  </Typography>
-</Box>
+        <Typography variant="h5" fontWeight={700}>
+          Dashboard
+        </Typography>
+      </Box>
 
       <Grid container spacing={3}>
         {/* ── KPI Cards ── */}
@@ -238,15 +188,6 @@ const Dashboard = () => {
         {/* ── AI Insights ── */}
         <Grid size={{ xs: 12 }}>
           <AIInsightCard insights={aiInsights} />
-        </Grid>
-
-        {/* ── Live Sensor Trends ── */}
-        <Grid size={{ xs: 12 }}>
-          <SensorTrendsChart
-            data={sensorTrends}
-            title="Live Sensor Trends"
-            lastUpdated={lastUpdated}
-          />
         </Grid>
       </Grid>
     </Box>

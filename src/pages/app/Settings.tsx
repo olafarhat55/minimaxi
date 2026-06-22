@@ -367,11 +367,11 @@ const sensorTypeCatalog = useMemo(() => {
     },
   };
 
-  const innerPaperSx = {
-    bgcolor: isDark ? '#283444' : '#f8fafc',
-    border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-    borderRadius: 2,
-  };
+ const innerPaperSx = {
+  bgcolor: isDark ? '#283444' : '#ffffff',
+  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+  borderRadius: 2,
+};
 
   const rowSx = {
     '&:last-child td': { border: 0 },
@@ -1045,16 +1045,7 @@ const openEditSensor = (item: SensorThreshold) => {
                   />
                 </Box>
 
-                <Grid container spacing={3} sx={{ mt: 1 }}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="caption" color="text.secondary">Last Training Date</Typography>
-                    <Typography fontWeight={500}>{aiModel.lastTraining}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography variant="caption" color="text.secondary">Next Scheduled Training</Typography>
-                    <Typography fontWeight={500}>{aiModel.nextTraining}</Typography>
-                  </Grid>
-                </Grid>
+                
 
                 <Divider sx={{ my: 2.5 }} />
 
@@ -1063,10 +1054,10 @@ const openEditSensor = (item: SensorThreshold) => {
                 </Typography>
                 <Grid container spacing={3}>
                   {[
-                    { label: 'Accuracy',  value: aiModel.metrics.accuracy,  color: '#22c55e' },
-                    { label: 'Precision', value: aiModel.metrics.precision, color: '#3b82f6' },
-                    { label: 'Recall',    value: aiModel.metrics.recall,    color: '#f59e0b' },
-                    { label: 'F1-Score',  value: aiModel.metrics.f1Score,   color: '#a855f7' },
+                    { label: 'Accuracy',  value: aiModel.metrics.accuracy,  color: '#3b82f6' },
+{ label: 'Precision', value: aiModel.metrics.precision, color: '#6366f1' },
+{ label: 'Recall',    value: aiModel.metrics.recall,    color: '#06b6d4' },
+{ label: 'F1-Score',  value: aiModel.metrics.f1Score,   color: '#8b5cf6' },
                   ].map((m) => (
                     <Grid key={m.label} size={{ xs: 12, sm: 6 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
@@ -1087,30 +1078,7 @@ const openEditSensor = (item: SensorThreshold) => {
                   ))}
                 </Grid>
 
-                <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
-                  <Button
-                    variant="contained"
-                    startIcon={retraining ? <CircularProgress size={16} color="inherit" /> : <RetrainIcon />}
-                    onClick={() => setRetrainDialog(true)}
-                    disabled={retraining}
-                  >
-                    {retraining ? 'Retraining…' : 'Retrain Model Now'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<ScheduleIcon />}
-                    onClick={() => setScheduleDialog(true)}
-                  >
-                    Schedule Training
-                  </Button>
-                  <Button
-                    variant="text"
-                    startIcon={<HistoryIcon />}
-                    onClick={() => { setLogsSearch(''); setLogsPage(0); setLogsDialog(true); }}
-                  >
-                    View Training Logs
-                  </Button>
-                </Box>
+                
 
                 {retraining && (
                   <Box sx={{ mt: 2.5 }}>
@@ -1122,132 +1090,7 @@ const openEditSensor = (item: SensorThreshold) => {
                 )}
               </Paper>
 
-              {/* Training History */}
-              <Paper elevation={0} sx={{ ...innerPaperSx, p: 3, mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Training History
-                </Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={tableHeaderSx}>
-                        <TableCell>Date</TableCell>
-                        <TableCell align="center">Duration</TableCell>
-                        <TableCell align="center">Accuracy</TableCell>
-                        <TableCell align="center">Status</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {aiModel.trainingHistory.map((h, i) => (
-                        <TableRow key={i} sx={rowSx}>
-                          <TableCell>{h.date}</TableCell>
-                          <TableCell align="center">{h.duration}</TableCell>
-                          <TableCell align="center">
-                            <Typography fontWeight={600} color="#22c55e">{h.accuracy}%</Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip label={h.status} size="small" sx={statusChipSx(h.status)} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-
-              {/* Advanced Settings */}
-              <Accordion
-                elevation={0}
-                sx={{
-                  bgcolor: isDark ? '#283444' : '#f8fafc',
-                  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-                  borderRadius: '8px !important',
-                  '&:before': { display: 'none' },
-                }}
-              >
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography fontWeight={600}>Advanced Settings</Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0 }}>
-                  <Grid container spacing={3}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        select fullWidth
-                        label="Prediction Window"
-                        value={advancedSettings.predictionWindow}
-                        onChange={(e) =>
-                          setAdvancedSettings((p) => ({ ...p, predictionWindow: Number(e.target.value) }))
-                        }
-                      >
-                        <MenuItem value={7}>7 days</MenuItem>
-                        <MenuItem value={14}>14 days</MenuItem>
-                        <MenuItem value={30}>30 days</MenuItem>
-                      </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        select fullWidth
-                        label="Auto-Retrain Frequency"
-                        value={advancedSettings.retrainFrequency}
-                        disabled={!advancedSettings.autoRetrain}
-                        onChange={(e) =>
-                          setAdvancedSettings((p) => ({ ...p, retrainFrequency: e.target.value }))
-                        }
-                      >
-                        <MenuItem value="weekly">Weekly</MenuItem>
-                        <MenuItem value="monthly">Monthly</MenuItem>
-                        <MenuItem value="quarterly">Quarterly</MenuItem>
-                      </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">Confidence Threshold</Typography>
-                        <Typography variant="body2" fontWeight={700}>
-                          {advancedSettings.confidenceThreshold}%
-                        </Typography>
-                      </Box>
-                      <Slider
-                        value={advancedSettings.confidenceThreshold}
-                        min={50}
-                        max={99}
-                        valueLabelDisplay="auto"
-                        valueLabelFormat={(v) => `${v}%`}
-                        onChange={(_e, val) =>
-                          setAdvancedSettings((p) => ({ ...p, confidenceThreshold: val as number }))
-                        }
-                        sx={{ color: '#3b82f6' }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        Alerts are only raised when AI confidence exceeds this threshold.
-                      </Typography>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={advancedSettings.autoRetrain}
-                            color="primary"
-                            onChange={(_, checked) =>
-                              setAdvancedSettings((p) => ({ ...p, autoRetrain: checked }))
-                            }
-                          />
-                        }
-                        label="Enable automatic model retraining"
-                      />
-                    </Grid>
-                  </Grid>
-                  <Box sx={{ mt: 2 }}>
-                    <Button
-                      variant="contained"
-                      startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                      onClick={handleSaveAdvanced}
-                      disabled={saving}
-                    >
-                      Save Advanced Settings
-                    </Button>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
+             
 
             </Box>
           )}

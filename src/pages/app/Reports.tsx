@@ -288,146 +288,156 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
 
         {/* ── TRENDS ────────────────────────────────────────────────────── */}
         <SectionLabel>Trends</SectionLabel>
-        <Grid container spacing={1.5} sx={{ mb: 3 }}>
+<Grid container spacing={1.5} sx={{ mb: 3 }}>
 
-          {/* Downtime — real monthly_downtime: before_hours / after_hours */}
-          <Grid size={{ xs: 6, md: 6 }}>
-            <Card sx={cardSx} elevation={0}>
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="h6" fontWeight={600}>Downtime reduction analysis</Typography>
-                <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
-                  Before vs after AI deployment (hours)
-                </Typography>
-                <Box sx={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data?.monthly_downtime ?? []} margin={{ left: -15, right: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                      <XAxis dataKey="month" tick={axisTick} />
-                      <YAxis tick={axisTick} tickFormatter={(v) => `${v}h`} />
-                      <Tooltip
-                        contentStyle={tooltipStyle}
-                        formatter={(value: number, name: string) => [
-                          `${value}h`,
-                          name === 'after_hours' ? 'After AI' : 'Before AI',
-                        ]}
-                      />
-                      <Legend
-                        formatter={(v) => v === 'after_hours' ? 'After AI' : 'Before AI'}
-                        wrapperStyle={{ fontSize: 12 }}
-                      />
-                      <Line type="monotone" dataKey="before_hours" stroke="#94a3b8" strokeWidth={2} dot={{ r: 3, fill: '#94a3b8' }} />
-                      <Line type="monotone" dataKey="after_hours"  stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+  {/* Downtime — real monthly_downtime: before_hours / after_hours */}
+  <Grid size={{ xs: 6, md: 6 }}>
+    <Card sx={cardSx} elevation={0}>
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={600}>Downtime reduction analysis</Typography>
+        <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
+          Before vs after AI deployment (hours)
+        </Typography>
+        <Box sx={{ height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={(data?.monthly_downtime ?? []).filter(d => d.before_hours > 0 || d.after_hours > 0)}
+              margin={{ left: -15, right: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="month" tick={axisTick} />
+              <YAxis tick={axisTick} tickFormatter={(v) => `${v}h`} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value: number, name: string) => [
+                  `${value}h`,
+                  name === 'after_hours' ? 'After AI' : 'Before AI',
+                ]}
+              />
+              <Legend
+                formatter={(v) => v === 'after_hours' ? 'After AI' : 'Before AI'}
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Line type="monotone" dataKey="before_hours" stroke="#94a3b8" strokeWidth={2} dot={{ r: 3, fill: '#94a3b8' }} />
+              <Line type="monotone" dataKey="after_hours"  stroke="#22c55e" strokeWidth={2} dot={{ r: 3, fill: '#22c55e' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Box>
+      </CardContent>
+    </Card>
+  </Grid>
 
-          {/* Cost — real monthly_cost: before / after */}
-          <Grid size={{ xs: 6, md: 6 }}>
-            <Card sx={cardSx} elevation={0}>
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="h6" fontWeight={600}>Maintenance cost saving</Typography>
-                <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
-                  Before vs after predictive maintenance ($K)
-                </Typography>
-                <Box sx={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data?.monthly_cost ?? []} barGap={4} margin={{ left: -15, right: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                      <XAxis dataKey="month" tick={axisTick} />
-                      <YAxis tick={axisTick} tickFormatter={(v) => `$${v}K`} />
-                      <Tooltip
-                        contentStyle={tooltipStyle}
-                        formatter={(value: number, name: string) => [
-                          `$${value}K`,
-                          name === 'after' ? 'After predictive maintenance' : 'Before predictive maintenance',
-                        ]}
-                      />
-                      <Legend
-                        formatter={(v) => v === 'after' ? 'After' : 'Before'}
-                        wrapperStyle={{ fontSize: 12 }}
-                      />
-                      <Bar dataKey="before" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="after"  fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+  {/* Cost — real monthly_cost: before / after */}
+  <Grid size={{ xs: 6, md: 6 }}>
+    <Card sx={cardSx} elevation={0}>
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={600}>Maintenance cost saving</Typography>
+        <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
+          Before vs after predictive maintenance ($K)
+        </Typography>
+        <Box sx={{ height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={(data?.monthly_cost ?? []).filter(d => d.before > 0 || d.after > 0)}
+              barGap={4}
+              margin={{ left: -15, right: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="month" tick={axisTick} />
+              <YAxis tick={axisTick} tickFormatter={(v) => `$${v}K`} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value: number, name: string) => [
+                  `$${value}K`,
+                  name === 'after' ? 'After predictive maintenance' : 'Before predictive maintenance',
+                ]}
+              />
+              <Legend
+                formatter={(v) => v === 'after' ? 'After' : 'Before'}
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Bar dataKey="before" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="after"  fill="#22c55e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      </CardContent>
+    </Card>
+  </Grid>
 
-          {/* Pie — real preventive_vs_reactive */}
-          <Grid size={{ xs: 6, md: 6 }}>
-            <Card sx={cardSx} elevation={0}>
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="h6" fontWeight={600}>Maintenance type distribution</Typography>
-                <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
-                  Preventive vs reactive
+  {/* Pie — real preventive_vs_reactive */}
+  <Grid size={{ xs: 6, md: 6 }}>
+    <Card sx={cardSx} elevation={0}>
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={600}>Maintenance type distribution</Typography>
+        <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
+          Preventive vs reactive
+        </Typography>
+        <Box sx={{ height: 220, display: 'flex', alignItems: 'center' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%" cy="50%"
+                innerRadius={50} outerRadius={78}
+                dataKey="value"
+                startAngle={90}
+                endAngle={-270}
+              >
+                {pieData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`]} />
+            </PieChart>
+          </ResponsiveContainer>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pr: 1 }}>
+            {pieData.map((entry, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: entry.color, flexShrink: 0 }} />
+                <Typography variant="body2">
+                  {entry.name} <b>{entry.value}%</b>
                 </Typography>
-                <Box sx={{ height: 220, display: 'flex', alignItems: 'center' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%" cy="50%"
-                        innerRadius={50} outerRadius={78}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                      >
-                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="none" />)}
-                      </Pie>
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pr: 1 }}>
-                    {pieData.map((entry, i) => (
-                      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: entry.color, flexShrink: 0 }} />
-                        <Typography variant="body2">
-                          {entry.name} <b>{entry.value}%</b>
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  </Grid>
 
-          {/* Accuracy Trend — real accuracy_trend */}
-          <Grid size={{ xs: 6, md: 6 }}>
-            <Card sx={cardSx} elevation={0}>
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="h6" fontWeight={600}>Prediction accuracy trend</Typography>
-                <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
-                  Monthly AI prediction accuracy (%)
-                </Typography>
-                <Box sx={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data?.accuracy_trend ?? []} margin={{ left: -15, right: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                      <XAxis dataKey="month" tick={axisTick} />
-                      <YAxis domain={[0, 100]} tick={axisTick} tickFormatter={(v) => `${v}%`} />
-                      <Tooltip
-                        contentStyle={tooltipStyle}
-                        formatter={(value: number) => [`${(+value).toFixed(1)}%`, 'Accuracy']}
-                      />
-                      <Line
-                        type="monotone" dataKey="accuracy"
-                        stroke="#3b82f6" strokeWidth={2.5}
-                        dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+  {/* Accuracy Trend — real accuracy_trend */}
+  <Grid size={{ xs: 6, md: 6 }}>
+    <Card sx={cardSx} elevation={0}>
+      <CardContent sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={600}>Prediction accuracy trend</Typography>
+        <Typography variant="body2" sx={{ color: muted, mb: 1.5 }}>
+          Monthly AI prediction accuracy (%)
+        </Typography>
+        <Box sx={{ height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={(data?.accuracy_trend ?? []).filter(d => d.accuracy != null && d.accuracy > 0)}
+              margin={{ left: -15, right: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="month" tick={axisTick} />
+              <YAxis domain={[0, 100]} tick={axisTick} tickFormatter={(v) => `${v}%`} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value: number) => [`${(+value).toFixed(1)}%`, 'Accuracy']}
+              />
+              <Line
+                type="monotone" dataKey="accuracy"
+                stroke="#3b82f6" strokeWidth={2.5}
+                dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Box>
+      </CardContent>
+    </Card>
+  </Grid>
+</Grid>
 
        
        {/* ── DETAILS ───────────────────────────────────────────────────── */}

@@ -53,6 +53,16 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// Risk helpers based on ttfHours
+const getRisk = (ttf: number) =>
+  ttf <= 1000 ? 'High' : ttf <= 2000 ? 'Medium' : 'Low';
+
+const getRiskColors = (ttf: number) => ({
+  bgcolor: ttf <= 1000 ? '#ffebee' : ttf <= 2000 ? '#fff3e0' : '#e8f5e9',
+  color:   ttf <= 1000 ? '#f44336' : ttf <= 2000 ? '#ff9800' : '#4caf50',
+  border:  ttf <= 1000 ? '#f44336' : ttf <= 2000 ? '#ff9800' : '#4caf50',
+});
+
 // Function to get calendar styles based on theme
 const getCalendarStyles = (isDark: boolean) => ({
   '.rbc-calendar': {
@@ -154,7 +164,6 @@ const MaintenancePlanning = () => {
   const theme = useTheme();
   const { isDark } = useThemeMode();
 
-  // Get theme-aware calendar styles
   const calendarStyles = useMemo(() => getCalendarStyles(isDark), [isDark]);
 
   useEffect(() => {
@@ -167,8 +176,11 @@ const MaintenancePlanning = () => {
           api.getMachines(),
         ]);
         setEvents(eventsData);
+        // Filter machines that need maintenance soon (TTF <= 2000 hours)
         setPredictedFailures(
-          machinesData.filter((m) => m.prediction.failure_probability >= 50)
+          machinesData
+            .filter((m) => m.prediction.ttfHours <= 2000)
+            .sort((a, b) => a.prediction.ttfHours - b.prediction.ttfHours)
         );
       } catch {
         setError('Failed to load maintenance data. Please check your connection and try again.');
@@ -180,7 +192,6 @@ const MaintenancePlanning = () => {
     fetchData();
   }, [currentDate, retryCount]);
 
-  // Transform events for react-big-calendar
   const calendarEvents = useMemo(() => {
     return events.map((event, index) => ({
       id: index,
@@ -193,7 +204,6 @@ const MaintenancePlanning = () => {
     }));
   }, [events]);
 
-  // Custom event styling
   const eventStyleGetter = useCallback((event: any) => {
     let backgroundColor = '#e3f2fd';
     let color = '#1976d2';
@@ -219,7 +229,6 @@ const MaintenancePlanning = () => {
     };
   }, []);
 
-  // Custom event component
   const EventComponent = useCallback(({ event }: { event: any }) => {
     const Icon = event.type === 'critical'
       ? CriticalIcon
@@ -239,33 +248,30 @@ const MaintenancePlanning = () => {
     setCurrentDate(date);
   }, []);
 
-  // Maintenance load forecast data
- const loadForecastData = useMemo(() => {
-  const weekRanges = [
-    { week: 'Week 1', start: 1,  end: 7  },
-    { week: 'Week 2', start: 8,  end: 14 },
-    { week: 'Week 3', start: 15, end: 21 },
-    { week: 'Week 4', start: 22, end: 31 },
-  ];
-  return weekRanges.map(({ week, start, end }) => {
-    const weekEvents = events.filter((e) => {
-      const day = new Date(e.date).getDate();
-      return day >= start && day <= end;
+  const loadForecastData = useMemo(() => {
+    const weekRanges = [
+      { week: 'Week 1', start: 1,  end: 7  },
+      { week: 'Week 2', start: 8,  end: 14 },
+      { week: 'Week 3', start: 15, end: 21 },
+      { week: 'Week 4', start: 22, end: 31 },
+    ];
+    return weekRanges.map(({ week, start, end }) => {
+      const weekEvents = events.filter((e) => {
+        const day = new Date(e.date).getDate();
+        return day >= start && day <= end;
+      });
+      return {
+        week,
+        scheduled: weekEvents
+          .filter((e) => e.type === 'scheduled')
+          .reduce((s, e) => s + e.count, 0),
+        predicted: weekEvents
+          .filter((e) => e.type === 'critical' || e.type === 'warning')
+          .reduce((s, e) => s + e.count, 0),
+      };
     });
-    return {
-      week,
-      scheduled: weekEvents
-        .filter((e) => e.type === 'scheduled')
-        .reduce((s, e) => s + e.count, 0),
-      predicted: weekEvents
-        .filter((e) => e.type === 'critical' || e.type === 'warning')
-        .reduce((s, e) => s + e.count, 0),
-    };
-  });
-}, [events]);
-  // react-to-print prints the live DOM through the browser's native print engine,
-  // which correctly renders the calendar, Recharts charts and MUI components
-  // without cloning or off-screen rendering tricks.
+  }, [events]);
+
   const handleExportPDF = useReactToPrint({
     contentRef,
     documentTitle: `Maintenance_Planning_Report_${format(new Date(), 'yyyy-MM-dd')}`,
@@ -325,7 +331,7 @@ const MaintenancePlanning = () => {
 
   return (
     <Box>
-      {/* Header with Title and Export Button */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" fontWeight={600}>
           Maintenance Planning
@@ -346,9 +352,8 @@ const MaintenancePlanning = () => {
         </Button>
       </Box>
 
-      {/* Content Container for PDF Export */}
       <Box ref={contentRef}>
-        {/* Calendar - Full Width */}
+        {/* Calendar */}
         <Card sx={{ borderRadius: 2, mb: 2 }}>
           <Box sx={{ p: 2, ...calendarStyles }}>
             <Calendar
@@ -360,16 +365,13 @@ const MaintenancePlanning = () => {
               date={currentDate}
               onNavigate={handleNavigate}
               eventPropGetter={eventStyleGetter}
-              components={{
-                event: EventComponent,
-              }}
+              components={{ event: EventComponent }}
               views={['month']}
               defaultView="month"
               popup
               selectable={false}
             />
           </Box>
-          {/* Legend */}
           <Box sx={{ px: 2, pb: 2, display: 'flex', gap: 3, borderTop: `1px solid ${isDark ? '#333' : '#f0f0f0'}`, pt: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: isDark ? 'rgba(211, 47, 47, 0.2)' : '#ffebee', border: '1px solid #d32f2f' }} />
@@ -386,68 +388,71 @@ const MaintenancePlanning = () => {
           </Box>
         </Card>
 
-        {/* Middle Row - Side by Side Cards */}
+        {/* Middle Row */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          {/* Predicted Failures */}
+          {/* Upcoming Maintenance card */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ borderRadius: 2, height: '100%' }}>
               <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ mb: 1.5 }}>
                   <Typography variant="subtitle1" fontWeight={600}>
-                    Predicted Failures
+                    Upcoming Maintenance
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Assets with high failure probability
+                    Assets requiring maintenance soon (TTF ≤ 2000 hrs)
                   </Typography>
                 </Box>
 
                 {predictedFailures.length === 0 ? (
                   <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
-                      No critical predictions
+                      No assets require immediate maintenance
                     </Typography>
                   </Box>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {predictedFailures.slice(0, 4).map((machine) => (
-                      <Paper
-                        key={machine.id}
-                        variant="outlined"
-                        sx={{
-                          p: 1.5,
-                          borderLeft: `3px solid ${machine.prediction.failure_probability >= 70 ? '#f44336' : '#ff9800'}`,
-                          borderRadius: 1,
-                          transition: 'box-shadow 0.2s',
-                          '&:hover': { boxShadow: 1 },
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" fontWeight={600} noWrap>
-                              {machine.asset_id}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              {machine.name}
-                            </Typography>
+                    {predictedFailures.slice(0, 4).map((machine) => {
+                      const riskColors = getRiskColors(machine.prediction.ttfHours);
+                      return (
+                        <Paper
+                          key={machine.id}
+                          variant="outlined"
+                          sx={{
+                            p: 1.5,
+                            borderLeft: `3px solid ${riskColors.border}`,
+                            borderRadius: 1,
+                            transition: 'box-shadow 0.2s',
+                            '&:hover': { boxShadow: 1 },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography variant="body2" fontWeight={600} noWrap>
+                                {machine.asset_id}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" noWrap>
+                                {machine.name}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: 'right', ml: 2 }}>
+                              <Chip
+                                label={getRisk(machine.prediction.ttfHours)}
+                                size="small"
+                                sx={{
+                                  height: 24,
+                                  fontWeight: 600,
+                                  bgcolor: riskColors.bgcolor,
+                                  color: riskColors.color,
+                                }}
+                              />
+                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                TTF: {machine.prediction.ttfHours.toLocaleString()} hrs
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box sx={{ textAlign: 'right', ml: 2 }}>
-                            <Chip
-                              label={`${machine.prediction.failure_probability}%`}
-                              size="small"
-                              sx={{
-                                height: 24,
-                                fontWeight: 600,
-                                bgcolor: machine.prediction.failure_probability >= 70 ? '#ffebee' : '#fff3e0',
-                                color: machine.prediction.failure_probability >= 70 ? '#f44336' : '#ff9800',
-                              }}
-                            />
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                              TTF: {machine.prediction.ttf}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Paper>
-                    ))}
+                        </Paper>
+                      );
+                    })}
                   </Box>
                 )}
               </Box>
@@ -502,7 +507,7 @@ const MaintenancePlanning = () => {
           </Grid>
         </Grid>
 
-        {/* Assets Table - Full Width */}
+        {/* Assets Table */}
         <Card sx={{ borderRadius: 2 }}>
           <Box sx={{ p: 2 }}>
             <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
@@ -517,61 +522,66 @@ const MaintenancePlanning = () => {
                     <TableCell>Type</TableCell>
                     <TableCell>Location</TableCell>
                     <TableCell>Risk Level</TableCell>
-                    <TableCell>Expected</TableCell>
-                    <TableCell>Recommended Action</TableCell>
+                    <TableCell>TTF (hrs)</TableCell>
+                    <TableCell>Notes</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {predictedFailures.map((machine) => (
-                    <TableRow
-                      key={machine.id}
-                      hover
-                      sx={{
-                        '& td': { py: 1.5 },
-                        '&:last-child td': { borderBottom: 0 },
-                      }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600} color="primary">
-                          {machine.asset_id}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{machine.name}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">{machine.type}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">{machine.location}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={`${machine.prediction.failure_probability}%`}
-                          size="small"
-                          sx={{
-                            height: 24,
-                            fontWeight: 600,
-                            bgcolor: machine.prediction.failure_probability >= 70 ? '#ffebee' : '#fff3e0',
-                            color: machine.prediction.failure_probability >= 70 ? '#f44336' : '#ff9800',
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{machine.prediction.ttf}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 220 }}>
-                          {machine.prediction.recommendation}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {predictedFailures.map((machine) => {
+                    const riskColors = getRiskColors(machine.prediction.ttfHours);
+                    return (
+                      <TableRow
+                        key={machine.id}
+                        hover
+                        sx={{
+                          '& td': { py: 1.5 },
+                          '&:last-child td': { borderBottom: 0 },
+                        }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600} color="primary">
+                            {machine.asset_id}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{machine.name}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">{machine.type}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">{machine.location}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getRisk(machine.prediction.ttfHours)}
+                            size="small"
+                            sx={{
+                              height: 24,
+                              fontWeight: 600,
+                              bgcolor: riskColors.bgcolor,
+                              color: riskColors.color,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>
+                            {machine.prediction.ttfHours.toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 220 }}>
+                            {machine.prediction.explanation}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {predictedFailures.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
-                          No assets currently predicted to require maintenance
+                          No assets currently require maintenance
                         </Typography>
                       </TableCell>
                     </TableRow>

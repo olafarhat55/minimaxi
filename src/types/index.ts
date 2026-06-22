@@ -35,11 +35,17 @@ export interface Company {
 // ============ MACHINE ============
 
 export interface MachinePrediction {
-  failure_probability: number;
-  rul: number;
-  ttf: string;
-  status: string;
-  recommendation: string;
+  severity: string;
+  confidenceScore: number;
+  rulCycles: number;
+  ttfHours: number;
+  explanation: string;
+  problemSensor: string | null;
+  currentValue: number | null;
+  normalMin: number | null;
+  normalMax: number | null;
+  modelAccuracy: number | null;
+  modelF1Score: number | null;
 }
 
 export interface MachineIssue {

@@ -216,11 +216,11 @@ if (!force && isForeignKeyError) {
     return `This asset has ${parts.join(' and ')} linked to it. Deleting will permanently remove them all. This action cannot be undone.`;
   };
 
-  const getStatusColor = (probability: number) => {
-    if (probability >= 70) return '#f44336';
-    if (probability >= 40) return '#ff9800';
-    return '#4caf50';
-  };
+  const getStatusColor = (severity: string) => {
+  if (severity === 'critical') return '#f44336';
+  if (severity === 'high' || severity === 'medium') return '#ff9800';
+  return '#4caf50';
+};
 
   const paginatedMachines = machines.slice(
     (page - 1) * rowsPerPage,
@@ -400,9 +400,8 @@ if (!force && isForeignKeyError) {
                   <TableCell>Type</TableCell>
                   <TableCell>Location</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Failure Risk</TableCell>
-                  <TableCell>RUL (cycles)</TableCell>
-                  <TableCell>TTF</TableCell>
+                 
+                 
                  
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -426,30 +425,8 @@ if (!force && isForeignKeyError) {
                     <TableCell>
                       <StatusBadge status={machine.status} />
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ flexGrow: 1, maxWidth: 80 }}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={machine.prediction.failure_probability}
-                            sx={{
-                              height: 6,
-                              borderRadius: 3,
-                              bgcolor: '#eee',
-                              '& .MuiLinearProgress-bar': {
-                                bgcolor: getStatusColor(machine.prediction.failure_probability),
-                                borderRadius: 3,
-                              },
-                            }}
-                          />
-                        </Box>
-                        <Typography variant="body2">
-                          {machine.prediction.failure_probability}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>{machine.prediction.rul}</TableCell>
-                    <TableCell>{machine.prediction.ttf}</TableCell>
+                    
+                   
                     
                     <TableCell align="center" onClick={(e) => e.stopPropagation()}>
   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>

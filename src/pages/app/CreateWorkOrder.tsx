@@ -349,20 +349,20 @@ await api.createWorkOrder({
                           />
                         </Box>
                       </Box>
-                      {selectedMachine.prediction && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">Failure Probability</Typography>
-                          <Typography
-                            variant="body2" fontWeight={500}
-                            color={
-                              selectedMachine.prediction.failure_probability >= 70 ? 'error' :
-                              selectedMachine.prediction.failure_probability >= 40 ? 'warning.main' : 'success.main'
-                            }
-                          >
-                            {selectedMachine.prediction.failure_probability}%
-                          </Typography>
-                        </Box>
-                      )}
+                     {selectedMachine.prediction && (
+  <Box>
+    <Typography variant="caption" color="text.secondary">Failure Probability</Typography>
+    <Typography
+      variant="body2" fontWeight={500}
+      color={
+        selectedMachine.prediction.confidenceScore >= 70 ? 'error' :
+        selectedMachine.prediction.confidenceScore >= 40 ? 'warning.main' : 'success.main'
+      }
+    >
+      {selectedMachine.prediction.confidenceScore}%
+    </Typography>
+  </Box>
+)}
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
