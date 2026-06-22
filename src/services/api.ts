@@ -191,6 +191,8 @@ const realApi = {
     axiosInstance.post('/auth/forgot-password', { email }),
   resetPassword: (email: string, otp: string, newPassword: string) =>
     axiosInstance.post('/auth/reset-password', { email, otp, newPassword }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+  axiosInstance.put('/users/change-password', { currentPassword, newPassword }),
 
   // Dashboard
   getDashboardStats: () =>
@@ -379,24 +381,38 @@ rateWorkOrder: (id: string | number, payload: any) =>
   axiosInstance.put('/notifications/read-all', null, { params: { userId: getUserId() } }),
 
   // Reports
-  getReportsData: () =>
-    axiosInstance.get('/reports', { params: { companyId: getCompanyId() } }).then((d: any) => ({
-      downtime_reduction:     d.downtimeReduction     ?? d.downtime_reduction     ?? 0,
-      prediction_accuracy:    d.predictionAccuracy    ?? d.prediction_accuracy    ?? 0,
-      cost_savings:           d.costSavings           ?? d.cost_savings           ?? 0,
-      preventive_vs_reactive: d.preventiveVsReactive  ?? d.preventive_vs_reactive ?? { preventive: 0, reactive: 0 },
-      monthly_downtime:       d.monthlyDowntime       ?? d.monthly_downtime       ?? [],
-      monthly_cost:           d.monthlyCost           ?? d.monthly_cost           ?? [],
-      accuracy_trend:         d.accuracyTrend         ?? d.accuracy_trend         ?? [],
-      technician_performance: (d.technicianPerformance ?? d.technician_performance ?? []).map((t: any) => ({
-        name:         t.name,
-        completed:    t.completed         ?? t.completedOrders ?? 0,
-        avg_time:     t.avgTime           ?? t.avg_time        ?? 0,
-        total_hours:  t.totalHours        ?? t.total_hours     ?? 0,
-        success_rate: t.successRate       ?? t.success_rate    ?? 0,
-        rating:       t.rating           ?? 0,
-      })),
+ getReportsData: () =>
+  axiosInstance.get('/reports', { params: { companyId: getCompanyId() } }).then((d: any) => ({
+    downtime_reduction:     d.downtimeReduction     ?? d.downtime_reduction     ?? 0,
+    prediction_accuracy:    d.predictionAccuracy    ?? d.prediction_accuracy    ?? 0,
+    cost_savings:           d.costSavings           ?? d.cost_savings           ?? 0,
+    preventive_vs_reactive: d.preventiveVsReactive  ?? d.preventive_vs_reactive ?? { preventive: 0, reactive: 0 },
+    monthly_downtime:       d.monthlyDowntime       ?? d.monthly_downtime       ?? [],
+    monthly_cost:           d.monthlyCost           ?? d.monthly_cost           ?? [],
+    accuracy_trend:         d.accuracyTrend         ?? d.accuracy_trend         ?? [],
+    technician_performance: (d.technicianPerformance ?? d.technician_performance ?? []).map((t: any) => ({
+      name:         t.name,
+      completed:    t.completed         ?? t.completedOrders ?? 0,
+      avg_time:     t.avgTime           ?? t.avg_time        ?? 0,
+      total_hours:  t.totalHours        ?? t.total_hours     ?? 0,
+      success_rate: t.successRate       ?? t.success_rate    ?? 0,
+      rating:       t.rating            ?? 0,
     })),
+    // ✅ الـ 3 دول كانوا ناقصين
+    mttr_mtbf: d.mttrMtbf ?? d.mttr_mtbf ?? { mttr_hours: 0, mtbf_hours: 0 },
+    top_problem_machines: (d.topProblemMachines ?? d.top_problem_machines ?? []).map((m: any) => ({
+      machine_id:        m.machineId        ?? m.machine_id,
+      machine_name:      m.machineName      ?? m.machine_name,
+      work_order_count:  m.workOrderCount   ?? m.work_order_count  ?? 0,
+      downtime_hours:    m.downtimeHours    ?? m.downtime_hours    ?? 0,
+      score:             m.score            ?? 0,
+    })),
+    top_spare_parts: (d.topSpareParts ?? d.top_spare_parts ?? []).map((p: any) => ({
+      name:         p.name,
+      usage_count:  p.usageCount  ?? p.usage_count  ?? 0,
+      total_cost:   p.totalCost   ?? p.total_cost   ?? 0,
+    })),
+  })),
 
   // Access Requests
   getAccessRequests: () => axiosInstance.get('/access-requests'),
@@ -499,11 +515,10 @@ rateWorkOrder: (id: string | number, payload: any) =>
 
 export const api = USE_MOCK ? mockApi : realApi as unknown as typeof mockApi & {
   activateInvitedUser: (token: string, password: string) => Promise<any>;
-} & {
   getSensorTypes: () => Promise<Array<{ id: number; name: string; unit: string }>>;
-} & {
   completeWorkOrder: (id: string | number, payload: any) => Promise<any>;
   rateWorkOrder: (id: string | number, payload: any) => Promise<any>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<any>;
 };
 
 

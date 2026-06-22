@@ -34,11 +34,6 @@ const StatCard = ({
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 2,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        transition: 'box-shadow 0.2s',
-        '&:hover': {
-          boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-        },
       }}
     >
       <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

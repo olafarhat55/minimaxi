@@ -73,10 +73,10 @@ const darkPalette = {
     light: '#22D3EE',
     dark: '#0891B2',
   },
-  background: {
-    default: '#1E2A3A',
-    paper: '#283444',
-  },
+background: {
+  default: '#1E2A3A',
+  paper: '#11151c',
+},
   text: {
     primary: '#F1F5F9',
     secondary: '#94A3B8',

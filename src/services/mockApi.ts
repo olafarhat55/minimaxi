@@ -734,6 +734,16 @@ getMaintenanceEvents: async (month: number, year: number) => {
     await delay(300);
     return { success: true };
   },
+
+  // ============ CHANGE PASSWORD ============
+changePassword: async (currentPassword: string, _newPassword: string) => {
+  await delay(300);
+  // Mock validation: any non-empty current password is accepted
+  if (!currentPassword) {
+    throw new Error('Current password is incorrect');
+  }
+  return { success: true, message: 'Password changed successfully' };
+},
 };
 
 export default mockApi;

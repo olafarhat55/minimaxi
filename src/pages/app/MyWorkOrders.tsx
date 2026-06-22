@@ -96,6 +96,7 @@ const MyWorkOrders = () => {
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
   const [actionTakenError, setActionTakenError] = useState('');
+  const [partCostError, setPartCostError] = useState('');
 
   const fetchMyWorkOrders = async () => {
     if (!user?.id) return;
