@@ -5,11 +5,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/common';
 import { MainLayout } from './components/layout';
 import { getDefaultRoute } from './utils/permissions';
-
-const DefaultRedirect = () => {
-  const { user } = useAuth();
-  return <Navigate to={getDefaultRoute(user)} replace />;
-};
+import { useState } from 'react';
+import SplashScreen from './pages/public/SplashScreen';
 
 import {
   LandingPage,
@@ -42,12 +39,20 @@ import {
   MachineHistory,
 } from './pages/app';
 
+const DefaultRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={getDefaultRoute(user)} replace />;
+};
+
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <ThemeContextProvider>
       {(theme) => (
         <ThemeProvider theme={theme}>
           <CssBaseline />
+          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
           <Router>
             <AuthProvider>
               <Routes>
@@ -175,13 +180,10 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-
-                  {/* ── Notifications page (all roles) ── */}
                   <Route
                     path="/notifications"
                     element={<Notifications />}
                   />
-
                   <Route
                     path="/reports"
                     element={
