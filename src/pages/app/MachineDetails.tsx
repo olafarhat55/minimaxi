@@ -334,38 +334,27 @@ const MachineDetails = () => {
     <Typography variant="caption" color="text.secondary">cycles</Typography>
   </Box>
 
-  {/* Time to Failure */}
-  <Box sx={{ flex: 1, p: 1, borderRadius: 1.5, bgcolor: isDark ? '#1e2a3a' : '#f5f5f5', textAlign: 'center' }}>
-    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
-      Time to Failure
-    </Typography>
-    {machine.prediction?.ttfHours != null ? (() => {
-      const totalHours = machine.prediction.ttfHours;
-      const months = Math.floor(totalHours / (24 * 30));
-      const days   = Math.floor((totalHours % (24 * 30)) / 24);
-      const hours  = Math.floor(totalHours % 24);
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-          {months > 0 && (
-            <Box>
-              <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{months}</Typography>
-              <Typography variant="caption" color="text.secondary">months</Typography>
-            </Box>
-          )}
-          <Box>
-            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{days}</Typography>
-            <Typography variant="caption" color="text.secondary">days</Typography>
-          </Box>
-          <Box>
-            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{hours}</Typography>
-            <Typography variant="caption" color="text.secondary">hrs</Typography>
-          </Box>
-        </Box>
-      );
-    })() : (
-      <Typography variant="h6" fontWeight={700}>—</Typography>
-    )}
-  </Box>
+  {/* Expected Failure Date */}
+<Box sx={{ flex: 1, p: 1, borderRadius: 1.5, bgcolor: isDark ? '#1e2a3a' : '#f5f5f5', textAlign: 'center' }}>
+  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+    Expected Failure Date
+  </Typography>
+  {machine.prediction?.ttfHours != null ? (() => {
+    const failureDate = new Date(Date.now() + machine.prediction.ttfHours * 60 * 60 * 1000);
+    const dateStr = failureDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = failureDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return (
+      <>
+        <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.3, fontSize: '1rem' }}>
+          {dateStr}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">{timeStr}</Typography>
+      </>
+    );
+  })() : (
+    <Typography variant="h6" fontWeight={700}>—</Typography>
+  )}
+</Box>
 </Box>
 
             {/* Model Accuracy */}
