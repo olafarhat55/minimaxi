@@ -302,50 +302,71 @@ const MachineDetails = () => {
             </Box>
 
             {/* Confidence */}
-            <Box sx={{ mb: 1.5 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">AI Confidence</Typography>
-                <Typography variant="body2" fontWeight={600}>
-                  {Math.round((machine.prediction?.confidenceScore ?? 0) * 100)}%
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={Math.round((machine.prediction?.confidenceScore ?? 0) * 100)}
-                sx={{
-                  height: 6, borderRadius: 4,
-                  bgcolor: isDark ? '#333' : '#eee',
-                  '& .MuiLinearProgress-bar': { bgcolor: severityColor, borderRadius: 4 },
-                }}
-              />
-            </Box>
+           {/* Confidence */}
+<Box sx={{ mb: 1.5 }}>
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+    <Typography variant="body2" color="text.secondary">AI Confidence</Typography>
+    <Typography variant="body2" fontWeight={600}>
+      {Math.round((machine.prediction?.confidenceScore ?? 0) * 100)}%
+    </Typography>
+  </Box>
+  <LinearProgress
+    variant="determinate"
+    value={Math.round((machine.prediction?.confidenceScore ?? 0) * 100)}
+    sx={{
+      height: 6, borderRadius: 4,
+      bgcolor: isDark ? '#333' : '#eee',
+      '& .MuiLinearProgress-bar': { bgcolor: severityColor, borderRadius: 4 },
+    }}
+  />
+</Box>
 
-            {/* RUL + TTF */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
-  {[
-    { label: 'Remaining Useful Life', value: machine.prediction?.rulCycles ?? '—', unit: 'cycles' },
-    { label: 'Time to Failure',       value: machine.prediction?.ttfHours != null 
-        ? (machine.prediction.ttfHours / 24).toFixed(1) 
-        : '—',                                                                      unit: 'days'   },
-  ].map(({ label, value, unit }) => (
-                <Box
-                  key={label}
-                  sx={{
-                    flex: 1,
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: isDark ? '#1e2a3a' : '#f5f5f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                    {label}
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{value}</Typography>
-                  <Typography variant="caption" color="text.secondary">{unit}</Typography>
-                </Box>
-              ))}
+{/* RUL + TTF */}
+<Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+  {/* Remaining Useful Life */}
+  <Box sx={{ flex: 1, p: 1, borderRadius: 1.5, bgcolor: isDark ? '#1e2a3a' : '#f5f5f5', textAlign: 'center' }}>
+    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+      Remaining Useful Life
+    </Typography>
+    <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+      {machine.prediction?.rulCycles ?? '—'}
+    </Typography>
+    <Typography variant="caption" color="text.secondary">cycles</Typography>
+  </Box>
+
+  {/* Time to Failure */}
+  <Box sx={{ flex: 1, p: 1, borderRadius: 1.5, bgcolor: isDark ? '#1e2a3a' : '#f5f5f5', textAlign: 'center' }}>
+    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+      Time to Failure
+    </Typography>
+    {machine.prediction?.ttfHours != null ? (() => {
+      const totalHours = machine.prediction.ttfHours;
+      const months = Math.floor(totalHours / (24 * 30));
+      const days   = Math.floor((totalHours % (24 * 30)) / 24);
+      const hours  = Math.floor(totalHours % 24);
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+          {months > 0 && (
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{months}</Typography>
+              <Typography variant="caption" color="text.secondary">months</Typography>
             </Box>
+          )}
+          <Box>
+            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{days}</Typography>
+            <Typography variant="caption" color="text.secondary">days</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>{hours}</Typography>
+            <Typography variant="caption" color="text.secondary">hrs</Typography>
+          </Box>
+        </Box>
+      );
+    })() : (
+      <Typography variant="h6" fontWeight={700}>—</Typography>
+    )}
+  </Box>
+</Box>
 
             {/* Model Accuracy */}
             {machine.prediction?.modelAccuracy != null && (
