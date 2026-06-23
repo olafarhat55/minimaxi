@@ -322,10 +322,12 @@ const MachineDetails = () => {
 
             {/* RUL + TTF */}
             <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
-              {[
-                { label: 'Remaining Useful Life', value: machine.prediction?.rulCycles ?? '—', unit: 'cycles' },
-                { label: 'Time to Failure',        value: machine.prediction?.ttfHours  ?? '—', unit: 'hrs'    },
-              ].map(({ label, value, unit }) => (
+  {[
+    { label: 'Remaining Useful Life', value: machine.prediction?.rulCycles ?? '—', unit: 'cycles' },
+    { label: 'Time to Failure',       value: machine.prediction?.ttfHours != null 
+        ? (machine.prediction.ttfHours / 24).toFixed(1) 
+        : '—',                                                                      unit: 'days'   },
+  ].map(({ label, value, unit }) => (
                 <Box
                   key={label}
                   sx={{
