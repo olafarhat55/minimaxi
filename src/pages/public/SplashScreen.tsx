@@ -10,9 +10,9 @@ const SplashScreen = ({ onFinish }: SplashScreenProps) => {
 
  useEffect(() => {
   const t1 = setTimeout(() => setPhase(1), 300);
-  const t2 = setTimeout(() => setPhase(2), 2000);   // كانت 1200
-  const t3 = setTimeout(() => setPhase(3), 4000);   // كانت 2200
-  const t4 = setTimeout(() => onFinish(), 5000);    // كانت 3200
+  const t2 = setTimeout(() => setPhase(2), 1600);   // كانت 2000
+  const t3 = setTimeout(() => setPhase(3), 3200);   // كانت 4000
+  const t4 = setTimeout(() => onFinish(), 4000);    // كانت 5000
   return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
 }, [onFinish]);
 

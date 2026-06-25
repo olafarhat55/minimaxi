@@ -97,17 +97,16 @@ const createAppTheme = (mode: string): Theme => {
   return createTheme({
     palette,
     typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-      h4: {
-        fontWeight: 600,
-      },
-      h5: {
-        fontWeight: 600,
-      },
-      h6: {
-        fontWeight: 600,
-      },
-    },
+  fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+  h4: { fontWeight: 600 },
+  h5: { fontWeight: 600 },
+  h6: { fontWeight: 600 },
+
+  // ضيفي الـ 3 دول بس ⬇️
+  body1: { fontSize: '0.9375rem' },
+  body2: { fontSize: '0.875rem' },
+  button: { textTransform: 'none' as const },
+},
     shape: {
       borderRadius: 8,
     },

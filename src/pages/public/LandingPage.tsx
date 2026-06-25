@@ -360,7 +360,7 @@ const LandingPage = () => {
         />
 
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Grid container spacing={6} alignItems="center">
+          <Grid container spacing={6} alignItems="center" columnSpacing={0}>
             {/* Left Content */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Fade in timeout={800}>
@@ -400,7 +400,7 @@ const LandingPage = () => {
                       letterSpacing: '-1px',
                     }}
                   >
-                    Predictive Maintenance{' '}
+                    Proactive Maintenance{' '}
                     <Box
                       component="span"
                       sx={{
@@ -501,179 +501,63 @@ const LandingPage = () => {
               </Fade>
             </Grid>
 
-            {/* Right Content - Hero Illustration */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Fade in timeout={1200}>
-                <Box
-                  sx={{
-                    position: 'relative',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  {/* Dashboard Mockup */}
-                  <Box
-                    sx={{
-                      width: '100%',
-                      maxWidth: 550,
-                      bgcolor: 'white',
-                      borderRadius: '20px',
-                      boxShadow: '0 25px 80px rgba(0,0,0,0.3)',
-                      overflow: 'hidden',
-                      transform: { xs: 'none', md: 'perspective(1000px) rotateY(-5deg)' },
-                    }}
-                  >
-                    {/* Browser Bar */}
-                    <Box
-                      sx={{
-                        bgcolor: '#F1F5F9',
-                        px: 2,
-                        py: 1.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', gap: 0.75 }}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#EF4444' }} />
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#F59E0B' }} />
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#10B981' }} />
-                      </Box>
-                      <Box
-                        sx={{
-                          flex: 1,
-                          bgcolor: 'white',
-                          borderRadius: '6px',
-                          px: 2,
-                          py: 0.5,
-                          mx: 2,
-                        }}
-                      >
-                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                          app.minimaxi.io/dashboard
-                        </Typography>
-                      </Box>
-                    </Box>
+           {/* Right Content - Hero Illustration */}
+<Grid 
+  size={{ xs: 12, md: 6 }} 
+  sx={{ 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'flex-start',
+    overflow: 'visible',
+    pl: 0,
+  }}
+>
+  <Box
+    sx={{
+      position: 'relative',
+      display: 'flex',
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      width: '100%',
+      overflow: 'visible',
+    }}
+  >
+    {/* Glow effect behind robot */}
+    <Box
+      sx={{
+        position: 'absolute',
+        width: 400,
+        height: 400,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(96,165,250,0.2) 0%, transparent 70%)',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        pointerEvents: 'none',
+      }}
+    />
 
-                    {/* Dashboard Content */}
-                    <Box sx={{ p: 3, bgcolor: '#F8FAFC' }}>
-                      {/* Header */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-                        <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1E293B' }}>
-                            Dashboard
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748B' }}>
-                            Equipment Health Overview
-                          </Typography>
-                        </Box>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            bgcolor: '#DCFCE7',
-                            px: 2,
-                            py: 0.5,
-                            borderRadius: '20px',
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              bgcolor: '#10B981',
-                            }}
-                          />
-                          <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>
-                            All Systems Healthy
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {/* Mini Stats */}
-                      <Grid container spacing={2} sx={{ mb: 3 }}>
-                        {[
-                          { label: 'Active Assets', value: '24', color: '#3B82F6' },
-                          { label: 'Predicted Failures', value: '2', color: '#F59E0B' },
-                          { label: 'Efficiency', value: '94%', color: '#10B981' },
-                        ].map((stat, i) => (
-                          <Grid size={{ xs: 4 }} key={i}>
-                            <Box
-                              sx={{
-                                bgcolor: 'white',
-                                p: 2,
-                                borderRadius: '12px',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                              }}
-                            >
-                              <Typography
-                                variant="h5"
-                                sx={{ fontWeight: 700, color: stat.color }}
-                              >
-                                {stat.value}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ color: '#64748B', fontSize: '0.65rem' }}
-                              >
-                                {stat.label}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        ))}
-                      </Grid>
-
-                      {/* Chart Placeholder */}
-                      <Box
-                        sx={{
-                          bgcolor: 'white',
-                          p: 2,
-                          borderRadius: '12px',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{ color: '#64748B', fontWeight: 600 }}
-                        >
-                          Equipment Health Trend
-                        </Typography>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'flex-end',
-                            gap: 0.5,
-                            mt: 2,
-                            height: 80,
-                          }}
-                        >
-                          {[40, 65, 55, 80, 70, 90, 85, 95, 88, 92].map((h, i) => (
-                            <Box
-                              key={i}
-                              sx={{
-                                flex: 1,
-                                height: `${h}%`,
-                                bgcolor: i >= 7 ? '#10B981' : '#3B82F6',
-                                borderRadius: '4px 4px 0 0',
-                                opacity: 0.8,
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-
-                  {/* Floating Alert Card */}
-                 
-                </Box>
-              </Fade>
-            </Grid>
-          </Grid>
-        </Container>
+    {/* Robot Image */}
+    <Box
+      component="img"
+      src="/images/robot.png"
+      alt="MiniMaxi AI Robot"
+      sx={{
+        width: '120%',
+        maxWidth: 'none',
+        height: 'auto',
+        display: 'block',
+        position: 'relative',
+        zIndex: 1,
+        filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.4))',
+        animation: 'float 4s ease-in-out infinite',
+        marginLeft: '-20px',
+      }}
+    />
+  </Box>
+</Grid>
+</Grid>
+</Container>
 
         {/* Wave Divider */}
         <Box
@@ -1246,18 +1130,23 @@ const LandingPage = () => {
       </Box>
 
       {/* Global Styles */}
-      <style>
-        {`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
+<style>
+  {`
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
 
-          html {
-            scroll-behavior: smooth;
-          }
-        `}
-      </style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-12px); }
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+  `}
+</style>
     </Box>
   );
 };

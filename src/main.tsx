@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 
+
 /**
  * Start the MSW browser worker before mounting React.
  *
@@ -20,6 +21,7 @@ async function enableMocking(): Promise<void> {
   const { worker } = await import('./mocks/browser');
   await worker.start({ onUnhandledRequest: 'bypass' });
 }
+
 
 enableMocking().then(() => {
   createRoot(document.getElementById('root')!).render(
