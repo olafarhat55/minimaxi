@@ -17,6 +17,7 @@ A full-featured, AI-powered predictive maintenance web application built with Re
 - [Authentication & Authorization](#authentication--authorization)
 - [Key Features](#key-features)
 - [API Layer](#api-layer)
+- [Backend Integration](#backend-integration)
 - [Mock API & MSW](#mock-api--msw)
 - [Real-Time Updates](#real-time-updates)
 - [Theming & Internationalization](#theming--internationalization)
@@ -39,7 +40,7 @@ The minimaxi Predictive Maintenance Platform is a role-based enterprise web appl
 - **Performance reports** with cost savings, downtime reduction, and technician metrics
 - **Role-based access control** for Admins, Engineers, and Technicians
 
-The application ships with a complete in-memory mock API, enabling full development and testing without a backend server.
+The frontend is deployed at **[minimaxi.vercel.app](https://minimaxi.vercel.app)** and connects to a Java Spring Boot backend deployed on Railway.
 
 ---
 
@@ -57,6 +58,7 @@ The application ships with a complete in-memory mock API, enabling full developm
 | Calendar | react-big-calendar | 1.19.4 |
 | Real-time | socket.io-client | 4.8.3 |
 | PDF Export | html2pdf.js + react-to-print | 0.14.0 / 3.3.0 |
+| Image Export | html2canvas | latest |
 | Date Utilities | date-fns | 4.1.0 |
 | Mocking (dev) | MSW (Mock Service Worker) | 2.12.10 |
 | Testing | Vitest + @testing-library | 4.0.18 |
@@ -124,8 +126,9 @@ predictive-maintenance/
 │   │   └── ThemeContext.tsx       # Theme (light/dark) state & MUI theme
 │   ├── services/
 │   │   ├── api.ts                 # Dual-mode API layer (mock or real)
+│   │   ├── axiosInstance.ts       # Axios instance with auth interceptors
 │   │   ├── mockApi.ts             # In-memory mock API implementation
-│   │   └── socket.ts              # Mock WebSocket for real-time updates
+│   │   └── socket.ts              # Socket.io client (real + mock fallback)
 │   ├── data/
 │   │   └── mockData.ts            # Seed data (users, machines, alerts, etc.)
 │   ├── utils/
@@ -208,6 +211,7 @@ predictive-maintenance/
 │           ├── Dashboard.test.tsx
 │           └── AlertsList.test.tsx
 ├── .env.development               # Development environment variables
+├── .env.production                # Production environment variables
 ├── vite.config.js                 # Vite + Vitest configuration
 ├── tsconfig.json                  # TypeScript configuration
 └── package.json
@@ -251,12 +255,13 @@ Central operations view available to all roles.
 - **Health Distribution Pie Chart**: Healthy / Warning / Critical breakdown
 - **Failure Probability Trend**: Daily, weekly, or monthly line chart
 - **AI Insights Panel**: Machine-specific predictions with confidence scores and severity badges
-- **Live Sensor Trends Chart**: Temperature, vibration, pressure — updated every 3 seconds via WebSocket
+- **Live Sensor Trends Chart**: Temperature, vibration, pressure — updated via Socket.io
 
 #### Machines List — `/machines`
 Full asset inventory with filtering and status monitoring.
 
 - Search (debounced 500ms), filter by type / location / status
+- **CSV Import**: Bulk-import machines from a CSV file (Admin / Engineer)
 - Table: Asset ID, Name, Type, Location, Status, Failure Probability, TTF, Actions
 - Technicians see a read-only view; Engineers and Admins can create work orders from a machine row
 - Pagination (10 rows/page)
@@ -265,9 +270,9 @@ Full asset inventory with filtering and status monitoring.
 Detailed view for a single asset.
 
 - Specifications: serial number, manufacturer, model, installation date, criticality
-- Prediction panel: failure probability, RUL (Remaining Useful Life), TTF (Time to Failure), AI recommendation text
+- Prediction panel: failure probability, RUL (Remaining Useful Life), TTF (Time to Failure), confidence score, severity, explanation text
 - Current sensor readings table
-- 24-hour sensor history chart with configurable lookback window
+- 24-hour sensor history chart with configurable lookback window (dynamic sensor key detection)
 - Create Work Order button (Engineers+), Delete button (Admin only)
 
 #### Add Asset — `/machines/add`
@@ -283,6 +288,7 @@ Full work order management for Admins and Engineers.
 - Filter by status, priority, and assigned technician; debounced search
 - Create, view, edit, delete with confirmation dialogs
 - Priority color scale: Critical (red) → High (orange) → Medium (amber) → Low (green)
+- **AI Insight → Work Order**: Convert an AI insight directly into a pre-filled work order
 
 #### Create Work Order — `/work-orders/new`
 Work order creation form.
@@ -296,6 +302,8 @@ Full work order view with collaboration features.
 - Header: WO number, machine link, priority badge, current status
 - Inline status updates via edit modal
 - Notes thread: view history, add timestamped notes (all roles with WO access)
+- **Completion Form**: When marking a WO as complete, record spare parts used and unit costs
+- **Technician Rating**: Rate the assigned technician after work order completion
 - Edit / Delete controls (Admin / Engineer)
 
 #### My Work Orders — `/my-work-orders`
@@ -330,6 +338,7 @@ Analytics and performance reporting (Admin / Engineer).
 - **Preventive vs Reactive Pie Chart**: Maintenance type distribution
 - **Model Accuracy Trend**: AI model accuracy over time (line chart)
 - Full page print-to-PDF via react-to-print
+- **Image Export**: Export individual chart sections as PNG via html2canvas
 
 #### Settings — `/settings`
 System configuration (Admin only). Three tabbed sections:
@@ -363,7 +372,7 @@ Personal settings for all authenticated users.
 
 1. User submits credentials on `/login`
 2. `AuthContext.login()` calls `api.login()` → returns `{ user, token }`
-3. User object and token are persisted in `sessionStorage`
+3. User object and token are persisted in `sessionStorage` (prevents cross-tab conflicts)
 4. `ProtectedRoute` reads `sessionStorage` synchronously on every navigation — no auth flash
 5. Axios request interceptor injects `Authorization: Bearer <token>` on every request
 6. Axios response interceptor handles `401` — clears session and redirects to `/login`
@@ -383,8 +392,11 @@ Three roles with a permission matrix defined in `src/utils/permissions.ts`:
 | View Machines | ✓ | ✓ | ✓ (read-only) |
 | Add / Edit Machines | ✓ | ✓ | — |
 | Delete Machines | ✓ | — | — |
+| Import Machines (CSV) | ✓ | ✓ | — |
 | View All Work Orders | ✓ | ✓ | own only |
 | Create / Edit Work Orders | ✓ | ✓ | — |
+| Complete Work Orders (with form) | ✓ | ✓ | ✓ |
+| Rate Technicians | ✓ | ✓ | — |
 | Update WO Status / Add Notes | ✓ | ✓ | ✓ |
 | View Alerts | ✓ | ✓ | — |
 | Acknowledge Alerts | ✓ | ✓ | — |
@@ -400,34 +412,59 @@ Routes are guarded by `<ProtectedRoute roles={[...]} />`, which redirects to the
 ## Key Features
 
 ### AI-Powered Predictions
-Each machine carries a `MachinePrediction` object:
+Each machine carries a `MachinePrediction` object with the following fields (updated contract):
 
 | Field | Description |
 |---|---|
 | `failure_probability` | 0–1 probability score |
-| `rul` | Remaining Useful Life (hours) |
-| `ttf` | Time to Failure (hours) |
+| `rul` / `rulCycles` | Remaining Useful Life (hours / cycles) |
+| `ttf` / `ttfHours` | Time to Failure (hours) |
 | `status` | `healthy` / `warning` / `critical` |
+| `severity` | Severity level from the backend model |
+| `confidenceScore` | Model confidence (0–1) |
+| `explanation` | Plain-language explanation of the prediction |
 | `recommendation` | Plain-language maintenance recommendation |
 
+### AI Insight → Work Order Conversion
+From the Dashboard AI Insights panel, Engineers and Admins can click **"Create Work Order"** on any insight card. This pre-fills the work order form with the machine, suggested title, priority (mapped from severity), and the AI explanation as the description.
+
+### Work Order Completion Flow
+When a work order is marked as **Completed**, a form is presented to record:
+- Spare parts used (name + quantity)
+- Unit cost per part
+- Total cost (auto-calculated)
+
+This data is submitted to the backend and reflected in the Reports cost savings metrics.
+
+### Technician Rating
+After a work order is completed, Admins and Engineers can rate the assigned technician (1–5 stars). Ratings are aggregated in the Reports → Technician Performance table.
+
+### CSV Machine Import
+Admins and Engineers can bulk-import machines via CSV upload on the Machines List page. The CSV is parsed client-side, validated against required fields, and submitted to the backend in a batch request.
+
+### Notification Click Navigation
+Clicking a notification in the header bell menu navigates directly to the relevant entity (machine, work order, or alert) using React Router, and marks the notification as read.
+
 ### Real-Time Sensor Monitoring
-The Dashboard subscribes to a WebSocket on mount. Every 3 seconds it receives updated readings (temperature, vibration, pressure) and appends them to the live sensor trend chart (capped at the last 10 readings). A 10% chance event simulates a new incoming alert.
+The Dashboard subscribes to Socket.io on mount. It receives updated sensor readings (temperature, vibration, pressure) and appends them to the live sensor trend chart (capped at the last 10 readings). The sensor keys are detected dynamically from the incoming payload rather than being hardcoded.
 
 ### Sensor History
-Machine Details fetches 24 hours of sensor data per machine, visualized as a multi-line Recharts chart with an adjustable lookback window.
+Machine Details fetches 24 hours of sensor data per machine, visualized as a multi-line Recharts chart with an adjustable lookback window and dynamic sensor key detection.
 
 ### Full Maintenance Workflow
 ```
 Alert triggered
-  → Work Order created
+  → Work Order created (or converted from AI insight)
     → Assigned to Technician
       → Status updates + Notes added
-        → Work Order completed
-          → Reports updated
+        → Work Order completed (spare parts + costs recorded)
+          → Technician rated
+            → Reports updated
 ```
 
-### PDF Export & Printing
-The Reports page uses `react-to-print` to open the browser print dialog. The `api.exportPDF()` endpoint handles programmatic PDF generation via `html2pdf.js`.
+### PDF & Image Export
+- **PDF**: The Reports page uses `react-to-print` to open the browser print dialog.
+- **Image**: Individual report sections can be exported as PNG via `html2canvas`.
 
 ### Responsive Layout
 - Mobile: Sidebar renders as a slide-out MUI Drawer
@@ -445,16 +482,17 @@ Supports two modes via the `USE_MOCK` constant:
 
 ```ts
 // src/services/api.ts
-const USE_MOCK = false;  // true → mockApi directly | false → axios (+ optional MSW)
+const USE_MOCK = false;  // true → mockApi directly | false → axios real backend
 ```
 
 The exported `api` object is typed as `typeof mockApi`, ensuring consistent types across both implementations.
 
 **Real API** (when `USE_MOCK = false`):
-- Base URL: `VITE_API_URL` env var, defaulting to `http://localhost:3001/api`
+- Base URL: `VITE_API_URL` env var (see Environment Variables)
 - 10-second request timeout
-- Automatic Bearer token injection via request interceptor
+- Automatic Bearer token injection via Axios request interceptor (`src/services/axiosInstance.ts`)
 - Automatic 401 logout + redirect via response interceptor
+- New endpoints called via `axiosInstance` directly to avoid TypeScript casting issues with the mock layer
 
 ### Available API Methods
 
@@ -462,10 +500,10 @@ The exported `api` object is typed as `typeof mockApi`, ensuring consistent type
 |---|---|
 | Auth | `login`, `logout`, `requestAccess`, `activateAccount` |
 | Dashboard | `getDashboardStats`, `getHealthDistribution`, `getFailureTrend`, `getSensorTrends`, `getAIInsights` |
-| Machines | `getMachines`, `getMachineById`, `createMachine`, `updateMachine`, `deleteMachine`, `getMachineSensorHistory` |
-| Work Orders | `getWorkOrders`, `getWorkOrderById`, `createWorkOrder`, `updateWorkOrder`, `deleteWorkOrder`, `addWorkOrderNote` |
+| Machines | `getMachines`, `getMachineById`, `createMachine`, `updateMachine`, `deleteMachine`, `getMachineSensorHistory`, `importMachinesCSV` |
+| Work Orders | `getWorkOrders`, `getWorkOrderById`, `createWorkOrder`, `updateWorkOrder`, `deleteWorkOrder`, `addWorkOrderNote`, `completeWorkOrder` |
 | Alerts | `getAlerts`, `acknowledgeAlert` |
-| Users | `getUsers`, `getUserById`, `createUser`, `updateUser`, `deleteUser`, `inviteUser`, `updateAvatar` |
+| Users | `getUsers`, `getUserById`, `createUser`, `updateUser`, `deleteUser`, `inviteUser`, `updateAvatar`, `rateUser` |
 | Company | `getCompanySettings`, `updateCompanySettings`, `completeSetup` |
 | Notifications | `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` |
 | Reports | `getReportsData` |
@@ -476,9 +514,45 @@ The exported `api` object is typed as `typeof mockApi`, ensuring consistent type
 
 ---
 
+## Backend Integration
+
+The production frontend connects to a **Java Spring Boot** backend deployed on **Railway**.
+
+### Architecture
+
+```
+minimaxi.vercel.app  (React / Vite — Vercel)
+        │
+        │  HTTPS + Bearer token
+        ▼
+  Railway backend  (Java Spring Boot)
+        │
+        ▼
+   PostgreSQL DB
+```
+
+### Key Integration Notes
+
+- **Auth**: JWT tokens issued by the backend are stored in `sessionStorage` and injected on every request via the Axios interceptor in `src/services/axiosInstance.ts`.
+- **camelCase / snake_case**: The frontend normalizes field names from the backend response (e.g., `failure_probability` vs `failureProbability`) in the API layer to keep page components consistent.
+- **`MachinePrediction` contract**: The backend returns an enriched prediction object with `severity`, `confidenceScore`, `rulCycles`, `ttfHours`, and `explanation` in addition to the base fields.
+- **CORS**: The backend is configured to allow requests from `https://minimaxi.vercel.app` and `http://localhost:5173`.
+- **Dashboard data fetching**: Uses `Promise.allSettled` (not `Promise.all`) so a single failing endpoint does not block the entire dashboard from rendering.
+- **Socket.io**: The frontend connects to the backend's Socket.io server for real-time sensor updates. The `MockSocket` fallback in `src/services/socket.ts` is used only when the real server is unavailable.
+
+### Switching Environments
+
+| Mode | `VITE_API_URL` | `USE_MOCK` in `api.ts` |
+|---|---|---|
+| Local dev with mock | *(any)* | `true` |
+| Local dev vs real backend | `http://localhost:8080/api` | `false` |
+| Production (Vercel → Railway) | `https://<railway-url>/api` | `false` |
+
+---
+
 ## Mock API & MSW
 
-Two complementary mocking strategies are available:
+Two complementary mocking strategies remain available for development and testing:
 
 ### 1. Direct Mock API (`src/services/mockApi.ts`)
 
@@ -510,7 +584,7 @@ MSW starts before React mounts (see `src/main.tsx`) to prevent request races dur
 |---|---|---|---|
 | Direct Mock | `true` | `false` | mockApi called directly, no HTTP involved |
 | MSW Mock | `false` | `true` | axios → MSW intercept → mockApi |
-| Real Backend | `false` | `false` | axios → actual backend server |
+| Real Backend | `false` | `false` | axios → Java Spring Boot on Railway |
 
 ---
 
@@ -518,9 +592,9 @@ MSW starts before React mounts (see `src/main.tsx`) to prevent request races dur
 
 **File**: `src/services/socket.ts`
 
-A `MockSocket` class simulates Socket.io client behavior for development:
+Connects to the backend Socket.io server for live sensor data. A `MockSocket` fallback class is used during local development without the backend:
 
-- Emits `machine_update` every 3 seconds with randomized sensor readings for CNC-001, PUMP-023, ENGINE-012
+- Emits `machine_update` every 3 seconds with randomized sensor readings
 - 10% chance per tick to emit `new_alert` with random severity and machine
 - Singleton pattern: one shared connection per app instance
 
@@ -535,8 +609,6 @@ socket.on('machine_update', (data) => {
 // Unmount
 disconnectSocket();
 ```
-
-To use real WebSocket in production, replace `MockSocket` with a real `socket.io-client` instance connecting to your backend.
 
 ---
 
@@ -638,17 +710,21 @@ await waitFor(() => {
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:3001/api` | Backend API base URL |
-| `VITE_USE_MSW` | `false` | Enable MSW mock interception (`true` / `false`) |
+| Variable | Description | Dev Default | Production |
+|---|---|---|---|
+| `VITE_API_URL` | Backend API base URL | `http://localhost:8080/api` | Railway backend URL |
+| `VITE_USE_MSW` | Enable MSW mock interception | `false` | `false` |
+| `VITE_SOCKET_URL` | Socket.io server URL | `http://localhost:8080` | Railway backend URL |
 
 Create `.env.development` or `.env.local` as needed:
 
 ```env
-VITE_API_URL=http://localhost:3001/api
-VITE_USE_MSW=true
+VITE_API_URL=http://localhost:8080/api
+VITE_SOCKET_URL=http://localhost:8080
+VITE_USE_MSW=false
 ```
+
+For production, set these as environment variables in the Vercel dashboard.
 
 ---
 
@@ -666,21 +742,32 @@ VITE_USE_MSW=true
 
 ---
 
+## Deployment
+
+| Layer | Platform | Notes |
+|---|---|---|
+| Frontend | Vercel | Auto-deploys from `main` branch; env vars set in Vercel dashboard |
+| Backend | Railway | Java Spring Boot; PostgreSQL add-on on the same project |
+
+Live URL: **[minimaxi.vercel.app](https://minimaxi.vercel.app)**
+
+---
+
 ## Known Limitations
 
-1. **In-memory mock state**: All data resets on page refresh. Intended for development and demo use only.
+1. **In-memory mock state**: All data resets on page refresh when running in mock mode. Intended for development and demo use only.
 
 2. **Pre-existing MUI Grid type errors**: 88 TypeScript errors (TS2769) from MUI v7 removing `item`/`container` props from Grid types. These do not affect runtime behavior.
 
 3. **TypeScript strict mode disabled**: `tsconfig.json` has `strict: false` to allow gradual type coverage.
 
-4. **Socket is simulated**: `src/services/socket.ts` generates random sensor data locally. Replace `MockSocket` with a real `socket.io-client` connection for production.
+4. **Socket fallback**: When the Railway backend is unreachable, `src/services/socket.ts` falls back to `MockSocket`, which generates random sensor data locally.
 
 5. **Activation links logged to console**: In development, invitation and activation URLs are printed to the browser console rather than sent by email.
 
 6. **Phone validation is Egypt-specific**: The validation regex (`^(\+20|0)?1[0125]\d{8}$`) matches Egyptian mobile numbers only.
 
-7. **PDF margin type error**: `html2pdf.js` has a pre-existing TypeScript issue with the margin tuple type in `Reports.tsx:207`. It works correctly at runtime.
+7. **PDF margin type error**: `html2pdf.js` has a pre-existing TypeScript issue with the margin tuple type in `Reports.tsx`. It works correctly at runtime.
 
 ---
 
