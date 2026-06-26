@@ -201,6 +201,13 @@ export interface AIInsight {
   insight: string;
   severity: string;
   confidence: number;
+  // optional structured fields from backend
+  sensorName?: string | null;
+  currentValue?: number | null;
+  normalMin?: number | null;
+  normalMax?: number | null;
+  issueType?: string | null;
+  urgency?: string | null;
 }
 
 // ============ MAINTENANCE ============

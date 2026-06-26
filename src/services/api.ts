@@ -213,19 +213,34 @@ const realApi = {
     axiosInstance.get('/dashboard/failure-trend', { params: { period, companyId: getCompanyId() } }),
   getSensorTrends: () =>
     axiosInstance.get('/dashboard/sensor-trends', { params: { companyId: getCompanyId() } }),
-  getAIInsights: () =>
-    axiosInstance.get('/dashboard/ai-insights', { params: { companyId: getCompanyId() } })
-      .then((data: any) =>
-        (Array.isArray(data) ? data : []).map((item: any) => ({
+ getAIInsights: () =>
+  axiosInstance.get('/dashboard/ai-insights', { params: { companyId: getCompanyId() } })
+    .then((data: any) =>
+      (Array.isArray(data) ? data : []).map((item: any) => {
+        const text = item.insight ?? '';
+        const urgencyMatch  = text.match(/^([A-Z]+):/);
+        const sensorMatch   = text.match(/inspect\s+([\w_]+)/i);
+        const issueMatch    = text.match(/Issue Type=([^\s.,]+)/i);
+        const readingMatch  = text.match(/Reading=([\d.]+)/i);
+        const rangeMatch    = text.match(/Normal Range=\(([\d.]+)-([\d.]+)\)/i);
+
+        return {
           id:           item.id,
           machine_id:   item.machineId   ?? item.machine_id,
           machine_name: item.machineName ?? item.machine_name,
           asset_id:     item.assetId     ?? item.asset_id,
-          insight:      item.insight,
+          insight:      text,
           severity:     item.severity,
-          confidence: item.confidence > 1 ? item.confidence : Math.round(item.confidence * 100),
-        }))
-      ),
+          confidence:   item.confidence > 1 ? item.confidence : Math.round(item.confidence * 100),
+          urgency:      urgencyMatch?.[1]  ?? null,
+          sensorName:   sensorMatch?.[1]   ?? null,
+          issueType:    issueMatch?.[1]     ?? null,
+          currentValue: readingMatch  ? parseFloat(readingMatch[1])  : null,
+          normalMin:    rangeMatch    ? parseFloat(rangeMatch[1])     : null,
+          normalMax:    rangeMatch    ? parseFloat(rangeMatch[2])     : null,
+        };
+      })
+    ),
 
   // Machines
  getMachines: (filters?: any) =>
