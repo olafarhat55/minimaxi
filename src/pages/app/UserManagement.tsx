@@ -378,7 +378,7 @@ const UserManagement = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mb: 2 }}>
         <input
           type="file"
           ref={fileInputRef}
@@ -579,7 +579,8 @@ const UserManagement = () => {
               ],
             },
           ].map((item) => {
-            const count = users.filter((u) => (roleLabels[u.role] ?? u.role) === item.key).length;
+           const rawCount = users.filter((u) => (roleLabels[u.role] ?? u.role) === item.key).length;
+const count = item.key === 'Company Admin' ? Math.max(rawCount, 1) : rawCount;
             return (
               <Grid size={{ xs: 12, md: 4 }} key={item.role}>
                 <Paper

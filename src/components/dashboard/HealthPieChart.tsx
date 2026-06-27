@@ -74,9 +74,9 @@ const HealthPieChart = ({ data, title = 'Asset Health Distribution' }: HealthPie
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
           {title}
         </Typography>
-        <Box sx={{ height: 300 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+        <Box sx={{ height: 300, width: '100%' }}>
+  <ResponsiveContainer width="100%" height={300}>
+    <PieChart>
               <Pie
                 data={data}
                 cx="50%"
@@ -88,6 +88,7 @@ const HealthPieChart = ({ data, title = 'Asset Health Distribution' }: HealthPie
                 dataKey="value"
                 strokeWidth={2}
                 stroke={isDark ? '#1e293b' : '#fff'}
+                isAnimationActive={false} 
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />

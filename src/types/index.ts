@@ -115,6 +115,12 @@ export interface WorkOrderNote {
   created_at: string;
 }
 
+export interface SparePart {
+  name: string;
+  quantity: number;
+  cost: number;
+}
+
 export interface WorkOrder {
   id: number;
   wo_number: string;
@@ -135,7 +141,13 @@ export interface WorkOrder {
   parts_needed: string[];
   notes: WorkOrderNote[];
   isRated?: boolean;
-is_rated?: boolean;
+  is_rated?: boolean;
+    action_taken?: string;
+  root_cause?: string;
+  additional_notes?: string;
+  hours_spent?: number;
+  minutes_spent?: number;
+  spare_parts?: SparePart[];
 }
 
 export interface WorkOrderFilters {

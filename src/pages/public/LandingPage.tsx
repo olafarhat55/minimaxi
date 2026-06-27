@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -108,6 +108,9 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+const [isAnimating, setIsAnimating] = useState(false);
+const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -116,6 +119,13 @@ const LandingPage = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+  intervalRef.current = setInterval(goToNextSlide, 4000);
+  return () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+}, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -129,6 +139,101 @@ const LandingPage = () => {
     setMobileOpen(false);
   };
 
+  const goToNextSlide = () => {
+  if (isAnimating) return;
+  setIsAnimating(true);
+ setTimeout(() => {
+    setCurrentSlide((prev) => (prev + 1) % 3);
+    setIsAnimating(false);
+  }, 800);
+};
+
+const handleDotClick = (index: number) => {
+  if (index === currentSlide || isAnimating) return;
+  if (intervalRef.current) clearInterval(intervalRef.current);
+  setIsAnimating(true);
+ setTimeout(() => {
+    setCurrentSlide((prev) => (prev + 1) % 3);
+    setIsAnimating(false);
+  }, 800);
+  intervalRef.current = setInterval(goToNextSlide, 4000);
+};
+
+  
+  const DashboardSlide = (
+ <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', px: 2 }}>
+   <Box sx={{ width: '100%', maxWidth: '100%', bgcolor: 'white', borderRadius: '20px', boxShadow: '0 25px 80px rgba(0,0,0,0.3)', overflow: 'hidden', transform: 'none' }}>
+      <Box sx={{ bgcolor: '#F1F5F9', px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#EF4444' }} />
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#F59E0B' }} />
+          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#10B981' }} />
+        </Box>
+        <Box sx={{ flex: 1, bgcolor: 'white', borderRadius: '6px', px: 2, py: 0.5, mx: 2 }}>
+          <Typography variant="caption" sx={{ color: '#94A3B8' }}>app.minimaxi.io/dashboard</Typography>
+        </Box>
+      </Box>
+      <Box sx={{ p: 3, bgcolor: '#F8FAFC' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#1E293B' }}>Dashboard</Typography>
+            <Typography variant="caption" sx={{ color: '#64748B' }}>Equipment Health Overview</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#DCFCE7', px: 2, py: 0.5, borderRadius: '20px' }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981' }} />
+            <Typography variant="caption" sx={{ color: '#166534', fontWeight: 600 }}>All Systems Healthy</Typography>
+          </Box>
+        </Box>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[{ label: 'Active Assets', value: '24', color: '#3B82F6' }, { label: 'Predicted Failures', value: '2', color: '#F59E0B' }, { label: 'Efficiency', value: '94%', color: '#10B981' }].map((stat, i) => (
+            <Grid size={{ xs: 4 }} key={i}>
+              <Box sx={{ bgcolor: 'white', p: 2, borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: stat.color }}>{stat.value}</Typography>
+                <Typography variant="caption" sx={{ color: '#64748B', fontSize: '0.65rem' }}>{stat.label}</Typography>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+        <Box sx={{ bgcolor: 'white', p: 2, borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>Equipment Health Trend</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, mt: 2, height: 80 }}>
+            {[40, 65, 55, 80, 70, 90, 85, 95, 88, 92].map((h, i) => (
+              <Box key={i} sx={{ flex: 1, height: `${h}%`, bgcolor: i >= 7 ? '#10B981' : '#3B82F6', borderRadius: '4px 4px 0 0', opacity: 0.8 }} />
+            ))}
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  </Box>
+);
+
+const RobotSlide = (
+  <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', width: '100%', overflow: 'visible' }}>
+    <Box sx={{ position: 'absolute', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(96,165,250,0.2) 0%, transparent 70%)', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
+    <Box component="img" src="/images/robot.png" alt="MiniMaxi AI Robot"
+      sx={{ width: '120%', maxWidth: 'none', height: 'auto', display: 'block', position: 'relative', zIndex: 1, filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.4))',  marginLeft: '-20px' }}
+    />
+  </Box>
+);
+
+const ThirdSlide = (
+  <Box sx={{ position: 'absolute', top: 0, left: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+    <Box
+      component="img"
+      src="/images/eng.png"
+      alt="Engineer"
+      sx={{
+        width: '130%',
+        height: 'auto',
+        display: 'block',
+        filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.4))',
+      }}
+    />
+  </Box>
+);
+
+const slides = [RobotSlide, DashboardSlide, ThirdSlide];
+  
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#FAFBFC', overflowX: 'hidden' }}>
       {/* Navigation Bar */}
@@ -156,7 +261,7 @@ const LandingPage = () => {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1.5,
+                gap: 0,
                 flexGrow: { xs: 1, md: 0 },
                 cursor: 'pointer',
               }}
@@ -166,7 +271,7 @@ const LandingPage = () => {
                 src="/images/logo.png"
                 alt="minimaxi logo"
                 style={{
-                  height: 36,
+                  height: 48,
                   width: 'auto',
                   display: 'block',
                   objectFit: 'contain',
@@ -501,59 +606,47 @@ const LandingPage = () => {
               </Fade>
             </Grid>
 
-           {/* Right Content - Hero Illustration */}
-<Grid 
-  size={{ xs: 12, md: 6 }} 
-  sx={{ 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'flex-start',
+         {/* Right Content - SLIDER */}
+<Grid
+  size={{ xs: 12, md: 6 }}
+  sx={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: currentSlide === 0 ? 'flex-start' : 'center',
     overflow: 'visible',
-    pl: 0,
   }}
 >
-  <Box
-    sx={{
-      position: 'relative',
-      display: 'flex',
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      width: '100%',
-      overflow: 'visible',
-    }}
-  >
-    {/* Glow effect behind robot */}
-    <Box
-      sx={{
-        position: 'absolute',
-        width: 400,
-        height: 400,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(96,165,250,0.2) 0%, transparent 70%)',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        pointerEvents: 'none',
-      }}
-    />
+  <Box sx={{ width: '100%', position: 'relative' }}>
+    <Box sx={{ overflow: 'hidden', width: '100%', position: 'relative', minHeight: 450 }}>
+      <Box
+        sx={{
+          opacity: isAnimating ? 0 : 1,
+          transform: isAnimating ? 'translateX(-30px)' : 'translateX(0)',
+          transition: 'opacity 0.8s ease, transform 0.8s ease',
+        }}
+      >
+        {slides[currentSlide]}
+      </Box>
+    </Box>
 
-    {/* Robot Image */}
-    <Box
-      component="img"
-      src="/images/robot.png"
-      alt="MiniMaxi AI Robot"
-      sx={{
-        width: '120%',
-        maxWidth: 'none',
-        height: 'auto',
-        display: 'block',
-        position: 'relative',
-        zIndex: 1,
-        filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.4))',
-        animation: 'float 4s ease-in-out infinite',
-        marginLeft: '-20px',
-      }}
-    />
+    {/* Dots Navigation */}
+    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 3 }}>
+      {[0, 1, 2].map((i) => (
+        <Box
+          key={i}
+          onClick={() => handleDotClick(i)}
+          sx={{
+            width: currentSlide === i ? 24 : 8,
+            height: 8,
+            borderRadius: '4px',
+            bgcolor: currentSlide === i ? 'white' : 'rgba(255,255,255,0.4)',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.8)' },
+          }}
+        />
+      ))}
+    </Box>
   </Box>
 </Grid>
 </Grid>
@@ -974,7 +1067,7 @@ const LandingPage = () => {
                   src="/images/logo.png"
                   alt="minimaxi logo"
                   style={{
-                    height: 36,
+                    height: 48,
                     width: 'auto',
                     display: 'block',
                     objectFit: 'contain',
@@ -1132,19 +1225,9 @@ const LandingPage = () => {
       {/* Global Styles */}
 <style>
   {`
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-12px); }
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+    html { scroll-behavior: smooth; }
   `}
 </style>
     </Box>

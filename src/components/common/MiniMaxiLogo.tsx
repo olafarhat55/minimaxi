@@ -25,11 +25,10 @@ const MiniMaxiLogo = ({
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 1.5,
+        gap: 1,
         cursor: onClick ? 'pointer' : 'default',
-        padding: '4px 8px',
-        borderRadius: 1,
-        transition: 'opacity 0.2s ease',
+        
+      transition: 'opacity 0.2s ease',
         '&:hover': onClick ? { opacity: 0.85 } : {},
       }}
     >

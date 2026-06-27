@@ -77,27 +77,16 @@ const LoginPage = () => {
     >
       <Container maxWidth="sm">
         <Box sx={{ textAlign: 'center', mb: 4, cursor: 'pointer' }} onClick={() => navigate('/')}>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'rgba(255,255,255,0.15)',
-              borderRadius: '16px',
-              p: 1.5,
-              mb: 2,
-            }}
-          >
-            <img
-              src="/images/logo.png"
-              alt="minimaxi logo"
-              style={{
-                height: 56,
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-            />
-          </Box>
+          <img
+  src="/images/logo.png"
+  alt="minimaxi logo"
+  style={{
+    height: 72,
+    width: 'auto',
+    objectFit: 'contain',
+    marginBottom: '8px',
+  }}
+/>
           <Typography
             variant="h4"
             fontWeight={700}
@@ -106,7 +95,7 @@ const LoginPage = () => {
             minimaxi
           </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
-            Predictive Maintenance Platform
+            Proactive Maintenance Platform
           </Typography>
         </Box>
 

@@ -137,7 +137,7 @@ const SensorTrendsChart = ({ data, title = 'Sensor Trends', lastUpdated }: Senso
 
         {/* ── Chart ── */}
         <Box sx={{ height: 280 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData} margin={{ top: 5, right: 20, left: 5, bottom: 35 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.5} />
               <XAxis
@@ -183,6 +183,7 @@ const SensorTrendsChart = ({ data, title = 'Sensor Trends', lastUpdated }: Senso
                     dot={false}
                     activeDot={{ r: 5, strokeWidth: 2 }}
                     animationDuration={300}
+                     isAnimationActive={false} 
                   />
                 );
               })}

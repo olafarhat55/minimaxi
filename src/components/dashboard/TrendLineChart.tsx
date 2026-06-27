@@ -142,7 +142,7 @@ const TrendLineChart = ({
         </Box>
 
         <Box sx={{ height }}>
-          <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis
@@ -179,6 +179,7 @@ const TrendLineChart = ({
                   dot={{ r: 3, fill: line.color }}
                   activeDot={{ r: 5, fill: line.color }}
                   name={line.name}
+                   isAnimationActive={false} 
                 />
               ))}
             </LineChart>

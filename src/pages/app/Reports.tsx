@@ -87,10 +87,17 @@ const Reports = () => {
   const handleExportPDF = useReactToPrint({
     contentRef: reportRef,
     documentTitle: `predictive-maintenance-report-${new Date().toISOString().slice(0, 10)}`,
-    pageStyle: `
-      @page { size: A4; margin: 15mm; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    `,
+   pageStyle: `
+  @page { 
+    size: A4; 
+    margin: 15mm;
+    margin-header: 0;
+    margin-footer: 0;
+  }
+  @media print { 
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+  }
+`,
   });
 
   // ── Image export ──────────────────────────────────────────────────────────
@@ -295,6 +302,19 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
 
       <Box ref={reportRef}>
 
+        {/* PDF Title */}
+<Box sx={{
+  display: 'none',
+  '@media print': { display: 'block', textAlign: 'center', mb: 4, pb: 2, borderBottom: '2px solid #e2e8f0' }
+}}>
+  <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#1e293b' }}>
+    Predictive Maintenance Report
+  </Typography>
+  <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
+    MiniMaxi — Predictive Maintenance Platform
+  </Typography>
+</Box>
+
         {/* ── KEY METRICS ───────────────────────────────────────────────── */}
         <SectionLabel>Key metrics</SectionLabel>
 <Grid container spacing={1.5} sx={{ mb: 3 }}>
@@ -336,7 +356,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
           Preventive vs reactive
         </Typography>
         <Box sx={{ height: 220, display: 'flex', alignItems: 'center' }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
                 data={pieData}
@@ -375,7 +395,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
           Before vs after predictive maintenance ($K)
         </Typography>
         <Box sx={{ height: 220 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%"height={220}>
             <BarChart
               data={(data?.monthly_cost ?? []).filter(d => d.before > 0 || d.after > 0)}
               barGap={4}
@@ -413,7 +433,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
           Before vs after AI deployment (hours)
         </Typography>
         <Box sx={{ height: 220 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%"height={220}>
             <LineChart
               data={(data?.monthly_downtime ?? []).filter(d => d.before_hours > 0 || d.after_hours > 0)}
               margin={{ left: -15, right: 8 }}
@@ -450,7 +470,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
           Monthly AI prediction accuracy (%)
         </Typography>
         <Box sx={{ height: 220 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={220}>
             <LineChart
               data={(data?.accuracy_trend ?? []).filter(d => d.accuracy != null && d.accuracy > 0)}
               margin={{ left: -15, right: 8 }}
@@ -652,6 +672,28 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
   </Grid>
 </Grid>
 
+        {/* PDF Footer */}
+<Box sx={{
+  display: 'none',
+  '@media print': {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    mt: 4,
+    pt: 2,
+    borderTop: '1px solid #e2e8f0',
+  }
+}}>
+  <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
+    MiniMaxi — Predictive Maintenance Platform
+  </Typography>
+  <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
+    Generated: {new Date().toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })}
+  </Typography>
+</Box>
       </Box>
     </Box>
   );
