@@ -457,7 +457,7 @@ addWorkOrderNote: async (id: string | number, note: any) => {
       completed_at: new Date().toISOString(),
       action_taken: data.actionTaken,
       root_cause: data.rootCause,
-      spare_parts: data.spareParts,
+      spare_parts: (data.spareParts ?? []).map((p: any) => ({ ...p, cost: p.cost ?? 0 })),
       hours_spent: data.hoursSpent,
       minutes_spent: data.minutesSpent,
       additional_notes: data.additionalNotes,
@@ -619,6 +619,71 @@ getMaintenanceEvents: async (month: number, year: number) => {
   return mockMaintenanceEvents.filter((e) => {
     const d = new Date(e.date);
     return d.getMonth() + 1 === month && d.getFullYear() === year;
+  });
+  },
+
+  getMaintenanceUpcoming: async () => {
+  await delay(300);
+  const activeWOs = workOrders.filter(
+    (wo) => wo.status === 'open' || wo.status === 'in_progress'
+  );
+  return machines
+    .filter((m) => m.prediction.ttfHours <= 2000)
+    .filter((m) => activeWOs.some((wo) => wo.machine_id === m.id))
+    .sort((a, b) => a.prediction.ttfHours - b.prediction.ttfHours)
+    .map((m) => {
+      const wo = activeWOs.find((wo) => wo.machine_id === m.id)!;
+      return {
+        asset_id: m.asset_id, name: m.name, type: m.type,
+        ttf_hours: m.prediction.ttfHours,
+        priority: wo.priority,
+        work_order_id: wo.id, work_order_number: wo.wo_number,
+      };
+    });
+},
+
+getMaintenanceExpected: async () => {
+  await delay(300);
+  const activeWOmachineIds = workOrders
+    .filter((wo) => wo.status === 'open' || wo.status === 'in_progress')
+    .map((wo) => wo.machine_id);
+  return machines
+    .filter((m) => m.prediction.ttfHours <= 2000)
+    .filter((m) => !activeWOmachineIds.includes(m.id))
+    .sort((a, b) => a.prediction.ttfHours - b.prediction.ttfHours)
+    .map((m) => ({
+      asset_id: m.asset_id, name: m.name, type: m.type,
+      location: m.location,
+      ttf_hours: m.prediction.ttfHours,
+      risk_level: m.prediction.ttfHours <= 1000 ? 'high' : 'medium',
+    }));
+},
+
+getMaintenanceLoadForecast: async (weeks = 4) => {
+  await delay(300);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const activeWOmachineIds = workOrders
+    .filter((wo) => wo.status === 'open' || wo.status === 'in_progress')
+    .map((wo) => wo.machine_id);
+  return Array.from({ length: weeks }, (_, i) => {
+    const weekStart = new Date(today); weekStart.setDate(today.getDate() + i * 7);
+    const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+    const scheduled = workOrders.filter((wo) => {
+      if (wo.status === 'completed' || !wo.due_date) return false;
+      const d = new Date(wo.due_date);
+      return d >= weekStart && d <= weekEnd;
+    }).length;
+    const predicted = machines.filter((m) => {
+      if (activeWOmachineIds.includes(m.id)) return false;
+      const days = Math.floor(m.prediction.ttfHours / 8);
+      return days >= i * 7 && days <= i * 7 + 6;
+    }).length;
+    return {
+      week: `Week ${i + 1}`,
+      week_start: weekStart.toISOString().slice(0, 10),
+      week_end:   weekEnd.toISOString().slice(0, 10),
+      scheduled, predicted,
+    };
   });
 },
   // ============ EXPORT ============

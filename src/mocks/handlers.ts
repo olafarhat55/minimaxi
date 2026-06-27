@@ -383,6 +383,23 @@ export const handlers = [
     return HttpResponse.json(data);
   }),
 
+  http.get(`${BASE}/maintenance/assets/upcoming`, async () => {
+  const data = await mockApi.getMaintenanceUpcoming();
+  return HttpResponse.json(data);
+}),
+
+http.get(`${BASE}/maintenance/assets/expected`, async () => {
+  const data = await mockApi.getMaintenanceExpected();
+  return HttpResponse.json(data);
+}),
+
+http.get(`${BASE}/maintenance/load-forecast`, async ({ request }) => {
+  const url   = new URL(request.url);
+  const weeks = Number(url.searchParams.get('weeks') ?? 4);
+  const data  = await mockApi.getMaintenanceLoadForecast(weeks);
+  return HttpResponse.json(data);
+}),
+
   // ══════════════════════════════════════════════════════
   // ACCESS REQUESTS
   // ══════════════════════════════════════════════════════

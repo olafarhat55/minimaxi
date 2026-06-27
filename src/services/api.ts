@@ -476,6 +476,15 @@ rateWorkOrder: (id: string | number, payload: any) =>
   getMaintenanceEvents: (month: number, year: number) =>
     axiosInstance.get('/maintenance/events', { params: { month, year, companyId: getCompanyId() } }),
 
+  getMaintenanceUpcoming: () =>
+  axiosInstance.get('/maintenance/assets/upcoming'),
+
+getMaintenanceExpected: () =>
+  axiosInstance.get('/maintenance/assets/expected'),
+
+getMaintenanceLoadForecast: (weeks = 4) =>
+    axiosInstance.get(`/maintenance/load-forecast?weeks=${weeks}`),
+
   // Export
   exportPDF: (type: string, id: string | number) =>
     axiosInstance.post('/export/pdf', { type, id }),
