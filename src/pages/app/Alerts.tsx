@@ -10,6 +10,8 @@ import {
   TextField,
   MenuItem,
   Skeleton,
+  Pagination,
+  Stack,
 } from '@mui/material';
 import {
   CheckCircle as AcknowledgeIcon,
@@ -40,6 +42,7 @@ const buildParams = (filter: string): Record<string, string> => {
 };
 
 const POLL_INTERVAL = 8000;
+const ITEMS_PER_PAGE = 10;
 
 const Alerts = () => {
   const { user } = useAuth();
@@ -48,6 +51,7 @@ const Alerts = () => {
   const [alerts, setAlerts]       = useState<AlertType[]>([]);
   const [allAlerts, setAllAlerts] = useState<AlertType[]>([]);
   const [filter, setFilter]       = useState('all');
+  const [page, setPage]           = useState(1);
 
   useEffect(() => {
     const fetchAll = () => {
@@ -86,6 +90,17 @@ const Alerts = () => {
     return () => clearInterval(interval);
   }, [filter, fetchFiltered]);
 
+  // Reset to page 1 whenever the filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
+
+  // Clamp page in case the list shrinks (e.g. after acknowledging, or polling updates)
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(alerts.length / ITEMS_PER_PAGE));
+    if (page > maxPage) setPage(maxPage);
+  }, [alerts.length, page]);
+
   const handleAcknowledge = async (alertId: number) => {
     try {
       await api.acknowledgeAlert(alertId, user.name);
@@ -111,6 +126,12 @@ const Alerts = () => {
     unacknowledged: allAlerts.filter((a) => !a.acknowledged).length,
   };
 
+  const pageCount = Math.max(1, Math.ceil(alerts.length / ITEMS_PER_PAGE));
+  const paginatedAlerts = alerts.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE,
+  );
+
   if (loading) {
     return (
       <Box>
@@ -135,7 +156,7 @@ const Alerts = () => {
       </Box>
 
       {/* Filter dropdown */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <TextField
           select
           size="small"
@@ -150,6 +171,13 @@ const Alerts = () => {
           <MenuItem value="medium">Medium</MenuItem>
           <MenuItem value="low">Low</MenuItem>
         </TextField>
+
+        {alerts.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Showing {(page - 1) * ITEMS_PER_PAGE + 1}-
+            {Math.min(page * ITEMS_PER_PAGE, alerts.length)} of {alerts.length}
+          </Typography>
+        )}
       </Box>
 
       {/* List */}
@@ -160,135 +188,152 @@ const Alerts = () => {
           description="There are no alerts matching your filter."
         />
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {alerts.map((alert) => {
-            const config = severityConfig[alert.severity] ?? severityConfig.low;
-            const SeverityIcon = config.icon;
+        <>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {paginatedAlerts.map((alert) => {
+              const config = severityConfig[alert.severity] ?? severityConfig.low;
+              const SeverityIcon = config.icon;
 
-            return (
-              <Card
-                key={alert.id}
-                onClick={() => {
-                  if (alert.machine_id) {
-                    navigate(`/machines/${alert.machine_id}`);
-                  }
-                }}
-                sx={{
-                  borderRadius: 2,
-                  borderLeft: `4px solid ${config.color}`,
-                  opacity: alert.acknowledged ? 0.7 : 1,
-                  cursor: alert.machine_id ? 'pointer' : 'default',
-                  '&:hover': alert.machine_id ? { boxShadow: 3 } : {},
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    {/* Severity icon */}
-                    <Box
-                      sx={{
-                        width: 48, height: 48,
-                        borderRadius: 2,
-                        bgcolor: config.bgcolor,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <SeverityIcon sx={{ color: config.color }} />
-                    </Box>
-
-                    {/* Content */}
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {alert.title}
-                        </Typography>
-                        <Chip
-                          label={alert.severity}
-                          size="small"
-                          sx={{ bgcolor: config.bgcolor, color: config.color, textTransform: 'capitalize', fontSize: '0.7rem' }}
-                        />
-                        <Chip
-                          label={alert.type}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                      </Box>
-
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {alert.message}
-                      </Typography>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {alert.asset_id && (
-                          <Typography variant="caption" color="text.secondary">
-                            {alert.asset_id} — {alert.machine_name}
-                          </Typography>
-                        )}
-                        <Typography variant="caption" color="text.secondary">
-                          {format(new Date(alert.created_at), 'MMM d, yyyy h:mm a')}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {/* Acknowledge button or badge */}
-                    {alert.acknowledged ? (
-                      <Box sx={{
-                        alignSelf: 'center',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        bgcolor: '#f0fdf4',
-                        border: '1px solid #86efac',
-                        borderRadius: 2,
-                        px: 1.5,
-                        py: 0.5,
-                      }}>
-                        <AcknowledgeIcon sx={{ fontSize: 16, color: '#16a34a' }} />
-                        <Typography variant="caption" color="#16a34a" fontWeight={600}>
-                          Acknowledged by {alert.acknowledged_by}
-                        </Typography>
-                      </Box>
-                    ) : user?.role !== 'technician' && (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<AcknowledgeIcon sx={{ fontSize: 16 }} />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAcknowledge(alert.id);
-                        }}
+              return (
+                <Card
+                  key={alert.id}
+                  onClick={() => {
+                    if (alert.machine_id) {
+                      navigate(`/machines/${alert.machine_id}`);
+                    }
+                  }}
+                  sx={{
+                    borderRadius: 2,
+                    borderLeft: `4px solid ${config.color}`,
+                    opacity: alert.acknowledged ? 0.7 : 1,
+                    cursor: alert.machine_id ? 'pointer' : 'default',
+                    '&:hover': alert.machine_id ? { boxShadow: 3 } : {},
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      {/* Severity icon */}
+                      <Box
                         sx={{
-                          alignSelf: 'center',
-                          borderRadius: '20px',
-                          borderColor: '#1976d2',
-                          color: '#1976d2',
-                          bgcolor: 'rgba(25, 118, 210, 0.04)',
-                          px: 2,
-                          py: 0.5,
-                          minWidth: 'fit-content',
-                          whiteSpace: 'nowrap',
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          '& .MuiButton-startIcon': {
-                            marginRight: 0.5,
-                            marginLeft: 0,
-                          },
-                          '&:hover': {
-                            bgcolor: 'rgba(25, 118, 210, 0.08)',
-                            borderColor: '#1976d2',
-                          },
+                          width: 48, height: 48,
+                          borderRadius: 2,
+                          bgcolor: config.bgcolor,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        Acknowledge
-                      </Button>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
+                        <SeverityIcon sx={{ color: config.color }} />
+                      </Box>
+
+                      {/* Content */}
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {alert.title}
+                          </Typography>
+                          <Chip
+                            label={alert.severity}
+                            size="small"
+                            sx={{ bgcolor: config.bgcolor, color: config.color, textTransform: 'capitalize', fontSize: '0.7rem' }}
+                          />
+                          <Chip
+                            label={alert.type}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                        </Box>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          {alert.message}
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          {alert.asset_id && (
+                            <Typography variant="caption" color="text.secondary">
+                              {alert.asset_id} — {alert.machine_name}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {format(new Date(alert.created_at), 'MMM d, yyyy h:mm a')}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Acknowledge button or badge */}
+                      {alert.acknowledged ? (
+                        <Box sx={{
+                          alignSelf: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          bgcolor: '#f0fdf4',
+                          border: '1px solid #86efac',
+                          borderRadius: 2,
+                          px: 1.5,
+                          py: 0.5,
+                        }}>
+                          <AcknowledgeIcon sx={{ fontSize: 16, color: '#16a34a' }} />
+                          <Typography variant="caption" color="#16a34a" fontWeight={600}>
+                            Acknowledged by {alert.acknowledged_by}
+                          </Typography>
+                        </Box>
+                      ) : user?.role !== 'technician' && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AcknowledgeIcon sx={{ fontSize: 16 }} />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAcknowledge(alert.id);
+                          }}
+                          sx={{
+                            alignSelf: 'center',
+                            borderRadius: '20px',
+                            borderColor: '#1976d2',
+                            color: '#1976d2',
+                            bgcolor: 'rgba(25, 118, 210, 0.04)',
+                            px: 2,
+                            py: 0.5,
+                            minWidth: 'fit-content',
+                            whiteSpace: 'nowrap',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            '& .MuiButton-startIcon': {
+                              marginRight: 0.5,
+                              marginLeft: 0,
+                            },
+                            '&:hover': {
+                              bgcolor: 'rgba(25, 118, 210, 0.08)',
+                              borderColor: '#1976d2',
+                            },
+                          }}
+                        >
+                          Acknowledge
+                        </Button>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Box>
+
+          {/* Pagination */}
+          {pageCount > 1 && (
+            <Stack alignItems="center" sx={{ mt: 4, mb: 2 }}>
+              <Pagination
+                count={pageCount}
+                page={page}
+                onChange={(_e, value) => setPage(value)}
+                color="primary"
+                shape="rounded"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          )}
+        </>
       )}
     </Box>
   );

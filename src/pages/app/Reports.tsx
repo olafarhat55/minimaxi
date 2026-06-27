@@ -308,10 +308,10 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
   '@media print': { display: 'block', textAlign: 'center', mb: 4, pb: 2, borderBottom: '2px solid #e2e8f0' }
 }}>
   <Typography sx={{ fontSize: 22, fontWeight: 700, color: '#1e293b' }}>
-    Predictive Maintenance Report
+    Proactive Maintenance Report
   </Typography>
   <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
-    MiniMaxi — Predictive Maintenance Platform
+    MiniMaxi — Proactive Maintenance Platform
   </Typography>
 </Box>
 
@@ -392,7 +392,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
       <CardContent sx={{ p: 2 }}>
         <Typography sx={{ fontSize: 16, fontWeight: 600 }}>Maintenance cost saving</Typography>
         <Typography sx={{ fontSize: 13, color: muted, mb: 1.5 }}>
-          Before vs after predictive maintenance ($K)
+          Before vs after Proactive maintenance ($K)
         </Typography>
         <Box sx={{ height: 220 }}>
           <ResponsiveContainer width="100%"height={220}>
@@ -408,7 +408,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
                 contentStyle={tooltipStyle}
                 formatter={(value: number, name: string) => [
                   `$${value}K`,
-                  name === 'after' ? 'After predictive maintenance' : 'Before predictive maintenance',
+                  name === 'after' ? 'After Proactive maintenance' : 'Before Proactive maintenance',
                 ]}
               />
               <Legend
@@ -685,7 +685,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
   }
 }}>
   <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
-    MiniMaxi — Predictive Maintenance Platform
+    MiniMaxi — Proactive Maintenance Platform
   </Typography>
   <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
     Generated: {new Date().toLocaleDateString('en-GB', {

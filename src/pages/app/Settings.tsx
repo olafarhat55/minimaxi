@@ -333,6 +333,8 @@ const sensorTypeCatalog = useMemo(() => {
   api.getAIModelInfo(),
   (api as any).getSensorTypes().catch(() => []),
      ]);
+      
+         
         setSensorTypes(sensorTypesData);
         setCompany({
           name:       companyData.name        || '',

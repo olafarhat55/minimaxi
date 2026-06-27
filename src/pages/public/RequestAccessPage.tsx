@@ -31,7 +31,7 @@ import {
 
 const serviceTypes = [
   { value: 'monitoring', label: 'Real-time Monitoring' },
-  { value: 'predictive', label: 'Predictive Maintenance' },
+  { value: 'Proactive', label: 'Proactive Maintenance' },
   { value: 'both', label: 'Both Services' },
 ];
 

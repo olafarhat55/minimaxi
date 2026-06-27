@@ -1081,7 +1081,7 @@ const slides = [RobotSlide, DashboardSlide, ThirdSlide];
                 variant="body2"
                 sx={{ color: '#94A3B8', lineHeight: 1.8, mb: 3, maxWidth: 300 }}
               >
-                AI-powered predictive maintenance platform helping companies reduce downtime
+                AI-powered Proactive maintenance platform helping companies reduce downtime
                 and optimize their maintenance operations.
               </Typography>
               <Box sx={{ display: 'flex', gap: 1.5 }}>

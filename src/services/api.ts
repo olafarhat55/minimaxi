@@ -157,7 +157,6 @@ const normalizeAssetType = (d: any) => {
   });
   return Array.isArray(d) ? d.map(normalize) : normalize(d);
 };
-
 // ─── normalizeSensorThreshold ─────────────────────────────────────────────────
 const normalizeSensorThreshold = (d: any) => {
   const normalize = (s: any) => ({
@@ -176,6 +175,13 @@ const normalizeSensorThreshold = (d: any) => {
   });
   return Array.isArray(d) ? d.map(normalize) : normalize(d);
 };
+
+// ─── normalizeCompany ──────────────────────────────────────────────────────────
+const normalizeCompany = (d: any) => ({
+  ...d,
+  industry: d.industry ? d.industry.toLowerCase() : 'manufacturing',
+});
+
 
 // ─── Real API ─────────────────────────────────────────────────────────────────
 const realApi = {
@@ -411,8 +417,14 @@ rateWorkOrder: (id: string | number, payload: any) =>
     }),
 
   // Company/Settings
-  getCompanySettings: () =>
-    axiosInstance.get('/company', { params: { companyId: getCompanyId() } }),
+getCompanySettings: () =>
+    axiosInstance.get('/company', { params: { companyId: getCompanyId() } })
+      .then((d: any) => ({
+        ...d,
+        industry: d.industry
+          ? d.industry.toLowerCase().replace(/\s+&\s+/g, '_').replace(/\s+/g, '_')
+          : 'manufacturing',
+      })),
   updateCompanySettings: (data: any) =>
     axiosInstance.put('/company', data, { params: { companyId: getCompanyId() } }),
   completeSetup: () =>
@@ -520,6 +532,8 @@ getMaintenanceLoadForecast: (weeks = 4) =>
   getSensorThresholds: () =>
     axiosInstance.get('/settings/sensor-thresholds')
       .then((d: any) => normalizeSensorThreshold(d)),
+  
+  
   
   getSensorTypes: () =>
   axiosInstance.get('/settings/sensor-types'),

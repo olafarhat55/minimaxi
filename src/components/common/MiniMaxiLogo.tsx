@@ -71,7 +71,7 @@ const MiniMaxiLogo = ({
                 transition: 'color 0.3s ease',
               }}
             >
-              Predictive Maintenance
+              Proactive Maintenance
             </Typography>
           )}
         </Box>
