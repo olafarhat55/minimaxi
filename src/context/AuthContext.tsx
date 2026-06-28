@@ -70,9 +70,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       console.log('[Auth] Login success:', userData.email, 'role:', userData.role);
-      sessionStorage.setItem('user', JSON.stringify(userData));
-      sessionStorage.setItem('token', token);
-      setUser(userData);
+      // جيبي الـ avatar من الـ backend بعد الـ login
+try {
+  const freshUser = await api.getUserById(userData.id) as any;
+  if (freshUser?.avatar) userData.avatar = freshUser.avatar;
+} catch {}
+
+sessionStorage.setItem('user', JSON.stringify(userData));
+sessionStorage.setItem('token', token);
+setUser(userData);
 
       return userData;
     } catch (err: any) {

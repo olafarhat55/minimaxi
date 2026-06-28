@@ -410,10 +410,9 @@ rateWorkOrder: (id: string | number, payload: any) =>
   updateUser: (id: string | number, data: any) => axiosInstance.put(`/users/${id}`, data),
   deleteUser: (id: string | number) => axiosInstance.delete(`/users/${id}`),
   inviteUser: (data: any) => axiosInstance.post('/users/invite', data),
-  updateAvatar: (id: string | number, base64Image: string, sessionUser?: any) =>
+  updateAvatar: (id: string | number, base64Image: string) =>
     axiosInstance.patch(`/users/${id}/avatar`, {
       avatar: base64Image,
-      ...(sessionUser && { _session: sessionUser }),
     }),
 
   // Company/Settings

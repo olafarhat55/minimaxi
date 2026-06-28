@@ -87,8 +87,11 @@ const Profile = () => {
       const base64 = await resizeImage(file);
       // Optimistic update — show the new avatar before the API call completes
       updateUser({ avatar: base64 });
-      await api.updateAvatar(user.id, base64, user);
-      setSuccess('Profile picture updated');
+const response = await api.updateAvatar(user.id, base64) as any;
+if (response?.avatar) {
+  updateUser({ avatar: response.avatar });
+}
+setSuccess('Profile picture updated');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       // Revert on failure
