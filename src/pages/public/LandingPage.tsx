@@ -1152,29 +1152,32 @@ const slides = [RobotSlide, DashboardSlide, ThirdSlide];
               ))}
             </Grid>
 
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Typography
-                variant="subtitle2"
-                sx={{ fontWeight: 700, mb: 2, color: 'white' }}
-              >
-                Support
-              </Typography>
-              {['Help Center', 'Documentation', 'Contact Us', 'Status'].map((link) => (
-                <Typography
-                  key={link}
-                  variant="body2"
-                  sx={{
-                    color: '#94A3B8',
-                    mb: 1.5,
-                    cursor: 'pointer',
-                    '&:hover': { color: 'white' },
-                    transition: 'color 0.2s',
-                  }}
-                >
-                  {link}
-                </Typography>
-              ))}
-            </Grid>
+           <Grid size={{ xs: 6, md: 2 }}>
+  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: 'white' }}>
+    Support
+  </Typography>
+  {[
+    { label: 'Help Center', href: null },
+    { label: 'Documentation', href: '/user-manual-EN.html' },
+    { label: 'Contact Us', href: null },
+    { label: 'Status', href: null },
+  ].map((item) => (
+    <Typography
+      key={item.label}
+      variant="body2"
+      onClick={() => item.href && window.open(item.href, '_blank')}
+      sx={{
+        color: '#94A3B8',
+        mb: 1.5,
+        cursor: item.href ? 'pointer' : 'default',
+        '&:hover': { color: item.href ? 'white' : '#94A3B8' },
+        transition: 'color 0.2s',
+      }}
+    >
+      {item.label}
+    </Typography>
+  ))}
+</Grid>
 
             <Grid size={{ xs: 6, md: 2 }}>
               <Typography
