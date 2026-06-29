@@ -126,13 +126,15 @@ const surface = isDark ? '#11151c' : '#fff';
 const border  = isDark ? '#262d3a' : '#e8eaee';
   const muted   = isDark ? '#7b8497' : '#8a93a3';
 
-  const cardSx = {
-    borderRadius: 2.5,
-    height: '100%',
-    bgcolor: surface,
-    border: `1px solid ${border}`,
-    boxShadow: 'none',
-  };
+ const cardSx = {
+  borderRadius: 2.5,
+  height: '100%',
+  bgcolor: surface,
+  border: `1px solid ${border}`,
+  boxShadow: 'none',
+  pageBreakInside: 'avoid',
+  breakInside: 'avoid',
+};
 
   const tooltipStyle = {
     backgroundColor: isDark ? '#1b2230' : '#fff',
@@ -424,7 +426,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
     </Card>
   </Grid>
 
-  {/* Downtime — real monthly_downtime: before_hours / after_hours (كان قبل كده الكارد الأول) */}
+  {/* Downtime — real monthly_downtime: before_hours / after_hours */}
   <Grid size={{ xs: 6, md: 6 }}>
     <Card sx={cardSx} elevation={0}>
       <CardContent sx={{ p: 2 }}>
@@ -461,7 +463,7 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
     </Card>
   </Grid>
 
-  {/* Accuracy Trend — real accuracy_trend (زي ما هو، رابع) */}
+  {/* Accuracy Trend — real accuracy_trend */}
   <Grid size={{ xs: 6, md: 6 }}>
     <Card sx={cardSx} elevation={0}>
       <CardContent sx={{ p: 2 }}>
