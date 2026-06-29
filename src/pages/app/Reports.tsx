@@ -259,8 +259,8 @@ const border  = isDark ? '#262d3a' : '#e8eaee';
   {
     icon: MtbfIcon,
     label: 'MTBF – Mean Time Between Failures',
-    value: `${mtbf.toFixed(1)}h`,
-    color: '#22c55e',
+    value:  `${(mtbf / 24).toFixed(1)}d`,
+    color: '#8b5cf6',
     bg: isDark ? 'rgba(34,197,94,0.12)' : '#f0fdf4',
   },
   ];
