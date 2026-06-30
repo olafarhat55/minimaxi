@@ -10,9 +10,6 @@ import {
   Link,
   Alert,
   MenuItem,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -29,12 +26,6 @@ import {
   validateCompanyName,
 } from '../../utils/validation';
 
-const serviceTypes = [
-  { value: 'monitoring', label: 'Real-time Monitoring' },
-  { value: 'Proactive', label: 'Proactive Maintenance' },
-  { value: 'both', label: 'Both Services' },
-];
-
 const RequestAccessPage = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -43,7 +34,6 @@ const RequestAccessPage = () => {
     contact_person: '',
     email: '',
     phone: '',
-    service_type: [],
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -68,18 +58,6 @@ const RequestAccessPage = () => {
     setError('');
   };
 
-  const handleServiceChange = (value: string) => {
-    setFormData((prev) => {
-      const current = prev.service_type;
-      if (current.includes(value)) {
-        return { ...prev, service_type: current.filter((v) => v !== value) };
-      } else {
-        return { ...prev, service_type: [...current, value] };
-      }
-    });
-    setErrors((prev) => ({ ...prev, service_type: '' }));
-  };
-
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     const companyError = validateCompanyName(formData.company_name);
@@ -91,8 +69,6 @@ const RequestAccessPage = () => {
     if (emailError) newErrors.email = emailError;
     const phoneError = validatePhone(formData.phone);
     if (phoneError) newErrors.phone = phoneError;
-    if (formData.service_type.length === 0)
-      newErrors.service_type = 'Please select at least one service';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,10 +79,7 @@ const RequestAccessPage = () => {
     email:                formData.email,
     phone:                formData.phone,
     industry:             formData.industry,
-    requested_service:
-      formData.service_type.length === 1
-        ? formData.service_type[0].toUpperCase()
-        : 'BOTH',
+    requested_service:    'BOTH',
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -315,31 +288,6 @@ const RequestAccessPage = () => {
                 helperText={errors.phone || 'Egyptian format: 01012345678 or +201012345678'}
                 placeholder="01012345678" required
               />
-
-              <Box sx={{ mt: 2, mb: 1 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Service Type *
-                </Typography>
-                <FormGroup>
-                  {serviceTypes.map((service) => (
-                    <FormControlLabel
-                      key={service.value}
-                      control={
-                        <Checkbox
-                          checked={formData.service_type.includes(service.value)}
-                          onChange={() => handleServiceChange(service.value)}
-                        />
-                      }
-                      label={service.label}
-                    />
-                  ))}
-                </FormGroup>
-                {errors.service_type && (
-                  <Typography variant="caption" color="error">
-                    {errors.service_type}
-                  </Typography>
-                )}
-              </Box>
 
               <Button
                 type="submit" fullWidth variant="contained" size="large"

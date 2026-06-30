@@ -70,6 +70,15 @@ const getRiskColors = (ttf: number) => ({
   border:  ttf <= 1000 ? '#f44336' : ttf <= 2000 ? '#ff9800' : '#4caf50',
 });
 
+/** Risk level label → colour bucket (critical / high / medium / low) */
+const getRiskLevelColors = (riskLevel: string) => {
+  const r = riskLevel?.toLowerCase();
+  if (r === 'critical') return { bgcolor: '#fde0dc', color: '#c62828' }; // dark red
+  if (r === 'high')     return { bgcolor: '#ffebee', color: '#f44336' }; // red
+  if (r === 'medium')   return { bgcolor: '#fff3e0', color: '#ff9800' }; // orange
+  return                       { bgcolor: '#e8f5e9', color: '#4caf50' }; // green (low / default)
+};
+
 /** Priority → colour bucket */
 const getPriorityColor = (priority: string) => {
   const p = priority?.toLowerCase();
@@ -598,11 +607,10 @@ setWorkOrders(workOrdersData);
                   </TableRow>
                 </TableHead>
                 <TableBody>
-  {expectedAssets.map((asset) => {
-    const colors = {
-      bgcolor: asset.risk_level === 'high' ? '#ffebee' : '#fff3e0',
-      color:   asset.risk_level === 'high' ? '#f44336' : '#ff9800',
-    };
+  {expectedAssets
+    .filter((asset) => ['high', 'critical'].includes(asset.risk_level?.toLowerCase()))
+    .map((asset) => {
+    const colors = getRiskLevelColors(asset.risk_level);
     return (
       <TableRow key={asset.asset_id} hover sx={{ '& td': { py: 1.5 }, '&:last-child td': { borderBottom: 0 } }}>
         <TableCell>
@@ -624,7 +632,7 @@ setWorkOrders(workOrdersData);
       </TableRow>
     );
   })}
-  {expectedAssets.length === 0 && (
+  {expectedAssets.filter((asset) => ['high', 'critical'].includes(asset.risk_level?.toLowerCase())).length === 0 && (
     <TableRow>
       <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body2" color="text.secondary">No assets currently require maintenance</Typography>

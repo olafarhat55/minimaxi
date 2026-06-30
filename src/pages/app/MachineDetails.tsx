@@ -170,7 +170,7 @@ const MachineDetails = () => {
     (key) => sensorHistory.some((item) => item[key] != null),
   );
 
-  const severity      = machine?.prediction?.severity ?? 'healthy';
+  const severity      = (machine?.prediction?.severity ?? 'healthy').toLowerCase();
   const severityColor =
     severity === 'critical' ? '#ef4444' :
     severity === 'high' || severity === 'medium' ? '#f59e0b' : '#22c55e';
@@ -286,24 +286,27 @@ const MachineDetails = () => {
                 <Chip
                   label={machine.criticality}
                   size="small"
-                  sx={{
-                    textTransform: 'capitalize',
-                    height: 24,
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    bgcolor:
-                      machine.criticality === 'HIGH' || machine.criticality === 'CRITICAL'
+                  sx={(() => {
+                    const crit = (machine.criticality ?? '').toUpperCase();
+                    const isHighOrCritical = crit === 'HIGH' || crit === 'CRITICAL';
+                    const isMedium = crit === 'MEDIUM';
+                    return {
+                      textTransform: 'capitalize',
+                      height: 24,
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      bgcolor: isHighOrCritical
                         ? 'rgba(239,68,68,0.12)'
-                        : machine.criticality === 'MEDIUM'
+                        : isMedium
                           ? 'rgba(245,158,11,0.12)'
                           : 'rgba(34,197,94,0.12)',
-                    color:
-                      machine.criticality === 'HIGH' || machine.criticality === 'CRITICAL'
+                      color: isHighOrCritical
                         ? '#ef4444'
-                        : machine.criticality === 'MEDIUM'
+                        : isMedium
                           ? '#f59e0b'
                           : '#22c55e',
-                  }}
+                    };
+                  })()}
                 />
               </Box>
             </Box>
